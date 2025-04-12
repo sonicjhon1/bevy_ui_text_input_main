@@ -240,7 +240,7 @@ pub fn text_input_system(
                             ..
                         } = &mut *text_input_pipeline;
 
-                        let font_atlas_set = font_atlas_sets.get_mut(&font_id).unwrap();
+                        let font_atlas_set = font_atlas_sets.entry(font_id).or_default();
 
                         let physical_glyph = layout_glyph.physical((0., 0.), 1.);
 
