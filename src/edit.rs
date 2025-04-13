@@ -7,7 +7,6 @@ use bevy::ecs::system::ResMut;
 use bevy::input::ButtonState;
 use bevy::input::keyboard::Key;
 use bevy::input::keyboard::KeyboardInput;
-use bevy::log::info_once;
 use bevy::text::cosmic_text::Action;
 use bevy::text::cosmic_text::BorrowedWithFontSystem;
 use bevy::text::cosmic_text::Edit;
@@ -40,21 +39,12 @@ pub fn text_input_edit_system(
     mut shift_pressed: Local<bool>,
     mut command_pressed: Local<bool>,
     time: Res<Time>,
-    //input_focus: Res<InputFocus>,
     mut character_events: EventReader<KeyboardInput>,
     mut query: Query<(&mut TextInputNode, &TextInputStyle)>,
     mut text_input_pipeline: ResMut<TextInputPipeline>,
 ) {
-    info_once!("text_edit_system");
     let mut clipboard = Clipboard::new();
     let mut font_system = &mut text_input_pipeline.font_system;
-    // if input_focus.is_changed() {
-    //     *shift_pressed = false;
-    //     *command_pressed = false;
-    // }
-    // let Some(focus) = input_focus.get() else {
-    //     return;
-    // };
 
     let Ok((mut text_input, cursor_style)) = query.get_single_mut() else {
         return;

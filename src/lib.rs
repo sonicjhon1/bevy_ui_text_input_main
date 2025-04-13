@@ -13,10 +13,10 @@ use bevy::math::{Rect, Vec2};
 use bevy::prelude::ReflectComponent;
 use bevy::reflect::{Reflect, std_traits::ReflectDefault};
 use bevy::render::{ExtractSchedule, RenderApp};
+use bevy::text::TextColor;
 use bevy::text::cosmic_text::{Buffer, Edit, Editor, Metrics};
 use bevy::text::{GlyphAtlasInfo, TextFont};
-use bevy::text::{TextColor, TextLayoutInfo};
-use bevy::ui::{Node, RenderUiSystem, UiSystem};
+use bevy::ui::{Node, RenderUiSystem, UiSystem, extract_text_sections};
 use edit::text_input_edit_system;
 use render::extract_text_input_nodes;
 use text_input_pipeline::{
@@ -42,7 +42,9 @@ impl Plugin for TextInputPlugin {
 
         render_app.add_systems(
             ExtractSchedule,
-            extract_text_input_nodes.in_set(RenderUiSystem::ExtractText),
+            extract_text_input_nodes
+                .in_set(RenderUiSystem::ExtractText)
+                .after(extract_text_sections),
         );
     }
 }

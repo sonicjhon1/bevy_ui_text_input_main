@@ -69,7 +69,6 @@ fn load_font_to_fontdb(
     map_handle_to_font_id: &mut HashMap<AssetId<Font>, (cosmic_text::fontdb::ID, Arc<str>)>,
     fonts: &Assets<Font>,
 ) -> FontFaceInfo {
-    info_once!("load font");
     let font_handle = text_font.font.clone();
     let (face_id, family_name) = map_handle_to_font_id
         .entry(font_handle.id())
@@ -121,7 +120,6 @@ pub fn text_input_system(
         &mut TextInputNode,
     )>,
 ) {
-    info_once!("text_input_system");
     for (node, text_font, text_input_layout_info, mut editor) in text_query.iter_mut() {
         let layout_info = text_input_layout_info.into_inner();
         let y_axis_orientation = YAxisOrientation::TopToBottom;
@@ -360,7 +358,6 @@ pub fn remove_dropped_font_atlas_sets_from_text_input_pipeline(
     mut text_input_pipeline: ResMut<TextInputPipeline>,
     mut font_events: EventReader<AssetEvent<Font>>,
 ) {
-    info_once!("remove_dropped_font_atlas_sets_from_text_input_pipeline");
     for event in font_events.read() {
         if let AssetEvent::Removed { id } = event {
             text_input_pipeline.font_atlas_sets.remove(id);

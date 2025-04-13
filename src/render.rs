@@ -7,9 +7,6 @@ use bevy::ecs::system::Commands;
 use bevy::ecs::system::Query;
 use bevy::ecs::system::Res;
 use bevy::ecs::system::ResMut;
-use bevy::log::info;
-use bevy::log::info_once;
-use bevy::log::warn_once;
 use bevy::math::Mat4;
 use bevy::math::Rect;
 use bevy::math::Vec2;
@@ -62,6 +59,7 @@ pub fn extract_text_input_nodes(
     default_ui_camera: Extract<DefaultUiCamera>,
 ) {
     let mut start = extracted_uinodes.glyphs.len();
+    println!("start!");
     let mut end = start + 1;
 
     let default_ui_camera = default_ui_camera.get();
@@ -119,8 +117,6 @@ pub fn extract_text_input_nodes(
         let line_height = input
             .editor
             .with_buffer(|buffer| buffer.metrics().line_height);
-
-        info!("line_height = {line_height}");
 
         for rect in &input.selection_rects {
             let id = commands.spawn(TemporaryRenderEntity).id();
@@ -186,12 +182,6 @@ pub fn extract_text_input_nodes(
                 transform: transform * Mat4::from_translation(position.extend(0.)),
                 rect,
             });
-
-            // if text_layout_info.glyphs.get(i + 1).is_none_or(|info| {
-            //     info.span_index != *span_index
-            //         || info.atlas_info.texture != atlas_info.texture
-            //         || last_color != color_out
-            // }) {
             extracted_uinodes.uinodes.insert(
                 commands.spawn(TemporaryRenderEntity).id(),
                 ExtractedUiNode {
@@ -205,13 +195,11 @@ pub fn extract_text_input_nodes(
                         atlas_scaling: Vec2::ONE,
                     },
                     main_entity: entity.into(),
-                    camera_entity,
+                    camera_entity: render_camera_entity.id(),
                 },
             );
 
             start = end;
-            // }
-            //last_color = color_out;
             end += 1;
         }
 
