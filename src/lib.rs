@@ -8,6 +8,8 @@ use bevy::color::Color;
 use bevy::color::palettes::css::{ALICE_BLUE, SKY_BLUE};
 use bevy::color::palettes::tailwind::GRAY_400;
 use bevy::ecs::component::Component;
+use bevy::ecs::entity::Entity;
+use bevy::ecs::event::Event;
 use bevy::ecs::schedule::IntoSystemConfigs;
 use bevy::math::{Rect, Vec2};
 use bevy::prelude::ReflectComponent;
@@ -26,19 +28,21 @@ pub struct TextInputPlugin;
 
 impl Plugin for TextInputPlugin {
     fn build(&self, app: &mut bevy::app::App) {
-        app.init_resource::<TextInputPipeline>().add_systems(
-            PostUpdate,
-            (
-                remove_dropped_font_atlas_sets_from_text_input_pipeline.before(AssetEvents),
+        app.add_event::<TextInputSubmitEvent>()
+            .init_resource::<TextInputPipeline>()
+            .add_systems(
+                PostUpdate,
                 (
-                    text_input_edit_system,
-                    update_cursor_blink_timers,
-                    text_input_system,
-                )
-                    .chain()
-                    .in_set(UiSystem::PostLayout),
-            ),
-        );
+                    remove_dropped_font_atlas_sets_from_text_input_pipeline.before(AssetEvents),
+                    (
+                        text_input_edit_system,
+                        update_cursor_blink_timers,
+                        text_input_system,
+                    )
+                        .chain()
+                        .in_set(UiSystem::PostLayout),
+                ),
+            );
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
@@ -57,19 +61,50 @@ impl Plugin for TextInputPlugin {
 #[require(
     Node,
     TextInputBuffer,
+    TextInputMode,
     TextFont,
     TextInputLayoutInfo,
     TextInputStyle,
     TextColor
 )]
 pub struct TextInputNode {
-    is_active: bool,
+    pub is_active: bool,
+    pub enter_mode: TextInputEnterMode,
+    pub allow_newline: bool,
 }
 
 impl Default for TextInputNode {
     fn default() -> Self {
-        Self { is_active: true }
+        Self {
+            is_active: true,
+            enter_mode: TextInputEnterMode::Newline,
+            allow_newline: true,
+        }
     }
+}
+
+#[derive(Event)]
+pub struct TextInputSubmitEvent {
+    pub text_input_id: Entity,
+    pub text: String,
+}
+
+#[derive(Component, Copy, Clone, Debug, Default, PartialEq)]
+pub enum TextInputMode {
+    #[default]
+    Text,
+    Number,
+    Hex,
+    Decimal,
+    SingleLineText,
+}
+
+#[derive(Component, Copy, Clone, Debug, Default, PartialEq)]
+pub enum TextInputEnterMode {
+    #[default]
+    Newline,
+    Submit,
+    Ignore,
 }
 
 #[derive(Component, Debug)]

@@ -1,5 +1,7 @@
 use arboard::Clipboard;
+use bevy::ecs::entity::Entity;
 use bevy::ecs::event::EventReader;
+use bevy::ecs::event::EventWriter;
 use bevy::ecs::system::Local;
 use bevy::ecs::system::Query;
 use bevy::ecs::system::Res;
@@ -7,7 +9,6 @@ use bevy::ecs::system::ResMut;
 use bevy::input::ButtonState;
 use bevy::input::keyboard::Key;
 use bevy::input::keyboard::KeyboardInput;
-use bevy::log::info;
 use bevy::text::cosmic_text::Action;
 use bevy::text::cosmic_text::BorrowedWithFontSystem;
 use bevy::text::cosmic_text::Edit;
@@ -17,8 +18,11 @@ use bevy::text::cosmic_text::Selection;
 use bevy::time::Time;
 
 use crate::TextInputBuffer;
+use crate::TextInputEnterMode;
+use crate::TextInputMode;
 use crate::TextInputNode;
 use crate::TextInputStyle;
+use crate::TextInputSubmitEvent;
 use crate::text_input_pipeline::TextInputPipeline;
 
 fn apply_motion<'a>(
@@ -37,19 +41,56 @@ fn apply_motion<'a>(
     editor.action(Action::Motion(motion));
 }
 
+fn filter_char_input(mode: TextInputMode, ch: char) -> bool {
+    match mode {
+        TextInputMode::SingleLineText => ch != '\n',
+        TextInputMode::Text => {
+            // Allow all characters for text mode
+            true
+        }
+        TextInputMode::Number => {
+            // Allow only numeric characters
+            ch.is_ascii_digit() || ch == '-'
+        }
+        TextInputMode::Hex => {
+            // Allow hexadecimal characters (0-9, a-f, A-F)
+            ch.is_ascii_hexdigit()
+        }
+        TextInputMode::Decimal => {
+            // Allow numeric characters and a single decimal point
+            ch.is_ascii_digit() || ch == '.' || ch == '-'
+        }
+    }
+}
+
+fn filter_text(mode: TextInputMode, text: &str) -> bool {
+    if mode == TextInputMode::Text {
+        true
+    } else {
+        text.chars().all(|ch| filter_char_input(mode, ch))
+    }
+}
+
 pub fn text_input_edit_system(
     mut shift_pressed: Local<bool>,
     mut command_pressed: Local<bool>,
     mut keyboard_events_reader: EventReader<KeyboardInput>,
-    mut query: Query<(&TextInputNode, &mut TextInputBuffer, &TextInputStyle)>,
+    mut query: Query<(
+        Entity,
+        &TextInputNode,
+        &TextInputMode,
+        &mut TextInputBuffer,
+        &TextInputStyle,
+    )>,
     mut text_input_pipeline: ResMut<TextInputPipeline>,
+    mut submit_event: EventWriter<TextInputSubmitEvent>,
 ) {
     let mut clipboard = Clipboard::new();
     let keyboard_events: Vec<_> = keyboard_events_reader.read().collect();
 
     let mut font_system = &mut text_input_pipeline.font_system;
 
-    for (input, mut buffer, cursor_style) in query.iter_mut() {
+    for (entity, input, mode, mut buffer, _) in query.iter_mut() {
         buffer.changed = false;
         if !input.is_active {
             continue;
@@ -103,7 +144,9 @@ pub fn text_input_edit_system(
                                         // paste
                                         if let Ok(ref mut clipboard) = clipboard {
                                             if let Ok(text) = clipboard.get_text() {
-                                                editor.insert_string(&text, None);
+                                                if filter_text(*mode, &text) {
+                                                    editor.insert_string(&text, None);
+                                                }
                                             }
                                         }
                                     }
@@ -151,8 +194,11 @@ pub fn text_input_edit_system(
                 } else {
                     match &event.logical_key {
                         Key::Character(str) => {
-                            if let Some(char) = str.chars().next() {
-                                println!("{char}");
+                            if let Some(char) = str
+                                .chars()
+                                .next()
+                                .filter(|char| filter_char_input(*mode, *char))
+                            {
                                 editor.action(Action::Insert(char));
                             }
                         }
@@ -160,7 +206,26 @@ pub fn text_input_edit_system(
                             editor.action(Action::Insert(' '));
                         }
                         Key::Enter => {
-                            editor.action(Action::Enter);
+                            match (*shift_pressed, input.enter_mode, input.allow_newline) {
+                                (false, TextInputEnterMode::Newline, true) => {
+                                    editor.action(Action::Enter);
+                                }
+                                (true, TextInputEnterMode::Newline, _) => {
+                                    let text = editor.with_buffer(crate::get_text);
+                                    submit_event.send(TextInputSubmitEvent {
+                                        text_input_id: entity,
+                                        text,
+                                    });
+                                }
+                                (false, TextInputEnterMode::Submit, _) => {
+                                    let text = editor.with_buffer(crate::get_text);
+                                    submit_event.send(TextInputSubmitEvent {
+                                        text_input_id: entity,
+                                        text,
+                                    });
+                                }
+                                _ => {}
+                            }
                         }
                         Key::Backspace => {
                             editor.action(Action::Backspace);
