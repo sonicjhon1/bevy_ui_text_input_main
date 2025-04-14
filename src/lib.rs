@@ -17,7 +17,7 @@ use bevy::text::TextColor;
 use bevy::text::cosmic_text::{Buffer, Edit, Editor, Metrics};
 use bevy::text::{GlyphAtlasInfo, TextFont};
 use bevy::ui::{Node, RenderUiSystem, UiSystem, extract_text_sections};
-use edit::text_input_edit_system;
+use edit::{text_input_edit_system, update_cursor_blink_timers};
 use render::extract_text_input_nodes;
 use text_input_pipeline::{
     TextInputPipeline, remove_dropped_font_atlas_sets_from_text_input_pipeline, text_input_system,
@@ -30,7 +30,11 @@ impl Plugin for TextInputPlugin {
             PostUpdate,
             (
                 remove_dropped_font_atlas_sets_from_text_input_pipeline.before(AssetEvents),
-                (text_input_edit_system, text_input_system)
+                (
+                    text_input_edit_system,
+                    update_cursor_blink_timers,
+                    text_input_system,
+                )
                     .chain()
                     .in_set(UiSystem::PostLayout),
             ),
@@ -50,8 +54,26 @@ impl Plugin for TextInputPlugin {
 }
 
 #[derive(Component, Debug)]
-#[require(Node, TextFont, TextInputLayoutInfo, TextInputStyle, TextColor)]
+#[require(
+    Node,
+    TextInputBuffer,
+    TextFont,
+    TextInputLayoutInfo,
+    TextInputStyle,
+    TextColor
+)]
 pub struct TextInputNode {
+    is_active: bool,
+}
+
+impl Default for TextInputNode {
+    fn default() -> Self {
+        Self { is_active: true }
+    }
+}
+
+#[derive(Component, Debug)]
+pub struct TextInputBuffer {
     set_text: Option<String>,
     pub(crate) editor: Editor<'static>,
     needs_update: bool,
@@ -62,7 +84,7 @@ pub struct TextInputNode {
     pub cursor_blink_time: f32,
 }
 
-impl Default for TextInputNode {
+impl Default for TextInputBuffer {
     fn default() -> Self {
         Self {
             set_text: None,
@@ -88,11 +110,11 @@ pub struct TextInputStyle {
     /// Selected text tint, if unset uses the `TextColor`
     pub selected_text_color: Option<Color>,
     /// Width of the cursor
-    pub width: TextCursorWidth,
+    pub cursor_width: TextCursorWidth,
     /// Corner radius in logical pixels
-    pub radius: f32,
+    pub cursor_radius: f32,
     /// Normalized height of the cursor relative to the text block's line height.
-    pub height: f32,
+    pub cursor_height: f32,
     /// Time cursor blinks in seconds
     pub blink_interval: f32,
 }
@@ -103,15 +125,15 @@ impl Default for TextInputStyle {
             cursor_color: GRAY_400.into(),
             selection_color: SKY_BLUE.into(),
             selected_text_color: Some(ALICE_BLUE.into()),
-            width: TextCursorWidth::Line(3.),
-            radius: 0.,
-            height: 1.,
+            cursor_width: TextCursorWidth::Line(3.),
+            cursor_radius: 0.,
+            cursor_height: 1.,
             blink_interval: 0.5,
         }
     }
 }
 
-impl TextInputNode {
+impl TextInputBuffer {
     pub fn get_text(&self) -> String {
         self.editor.with_buffer(|buffer| get_text(buffer))
     }

@@ -7,6 +7,7 @@ use bevy::ecs::system::Commands;
 use bevy::ecs::system::Query;
 use bevy::ecs::system::Res;
 use bevy::ecs::system::ResMut;
+use bevy::log::info;
 use bevy::math::Mat4;
 use bevy::math::Rect;
 use bevy::math::Vec2;
@@ -32,9 +33,9 @@ use bevy::ui::ResolvedBorderRadius;
 use bevy::ui::TargetCamera;
 
 use crate::TextCursorWidth;
+use crate::TextInputBuffer;
 use crate::TextInputGlyph;
 use crate::TextInputLayoutInfo;
-use crate::TextInputNode;
 use crate::TextInputStyle;
 
 pub fn extract_text_input_nodes(
@@ -52,14 +53,13 @@ pub fn extract_text_input_nodes(
             &TextInputLayoutInfo,
             &TextColor,
             &TextInputStyle,
-            &TextInputNode,
+            &TextInputBuffer,
         )>,
     >,
     mapping: Extract<Query<&RenderEntity>>,
     default_ui_camera: Extract<DefaultUiCamera>,
 ) {
     let mut start = extracted_uinodes.glyphs.len();
-    println!("start!");
     let mut end = start + 1;
 
     let default_ui_camera = default_ui_camera.get();
@@ -211,14 +211,14 @@ pub fn extract_text_input_nodes(
             continue;
         }
 
-        let cursor_height = line_height * style.height;
+        let cursor_height = line_height * style.cursor_height;
 
         let Some((x, y)) = input.editor.cursor_position() else {
             continue;
         };
 
         let scale_factor = uinode.inverse_scale_factor().recip();
-        let width = match style.width {
+        let width = match style.cursor_width {
             TextCursorWidth::Block => 3. * scale_factor,
             TextCursorWidth::Line(width) => width * scale_factor,
         };

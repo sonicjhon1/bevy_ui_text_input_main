@@ -4,7 +4,7 @@ use bevy::{
     color::palettes::css::{NAVY, RED, YELLOW},
     prelude::*,
 };
-use bevy_ui_text_input::{TextInputNode, TextInputPlugin, TextInputStyle};
+use bevy_ui_text_input::{TextInputBuffer, TextInputPlugin, TextInputStyle};
 
 fn main() {
     App::new()
@@ -19,7 +19,7 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
 
     let editor = commands
         .spawn((
-            TextInputNode::default(),
+            TextInputBuffer::default(),
             TextFont {
                 font: assets.load("fonts/FiraSans-Bold.ttf"),
                 font_size: 25.,

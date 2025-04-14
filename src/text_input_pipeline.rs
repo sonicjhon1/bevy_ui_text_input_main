@@ -11,7 +11,6 @@ use bevy::ecs::system::ResMut;
 use bevy::ecs::system::Resource;
 use bevy::ecs::world::Ref;
 use bevy::image::Image;
-use bevy::log::info_once;
 use bevy::math::Rect;
 use bevy::math::UVec2;
 use bevy::math::Vec2;
@@ -32,7 +31,7 @@ use bevy::utils::HashMap;
 
 use crate::TextInputGlyph;
 use crate::TextInputLayoutInfo;
-use crate::TextInputNode;
+use crate::TextInputBuffer;
 
 #[derive(Resource)]
 pub struct TextInputPipeline {
@@ -117,7 +116,7 @@ pub fn text_input_system(
         Ref<ComputedNode>,
         Ref<TextFont>,
         &mut TextInputLayoutInfo,
-        &mut TextInputNode,
+        &mut TextInputBuffer,
     )>,
 ) {
     for (node, text_font, text_input_layout_info, mut editor) in text_query.iter_mut() {
@@ -194,7 +193,7 @@ pub fn text_input_system(
             .shape_as_needed(&mut text_input_pipeline.font_system, true);
 
         let selection = editor.editor.selection_bounds();
-        let TextInputNode {
+        let TextInputBuffer {
             editor,
             selection_rects,
             ..
