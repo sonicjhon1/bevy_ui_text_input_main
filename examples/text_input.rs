@@ -1,25 +1,54 @@
 //! text input example
 
 use bevy::{
-    color::palettes::css::{NAVY, RED, YELLOW},
+    color::palettes::css::{NAVY, YELLOW},
     prelude::*,
 };
-use bevy_ui_text_input::{TextInputBuffer, TextInputNode, TextInputPlugin, TextInputStyle};
+use bevy_ui_text_input::{
+    TextInputBuffer, TextInputNode, TextInputPlugin, TextInputStyle, TextInputSubmitEvent,
+};
 
 fn main() {
     App::new()
         .add_plugins((DefaultPlugins, TextInputPlugin))
         .add_systems(Startup, setup)
+        .add_systems(Update, submit)
         .run();
 }
+
+#[derive(Component)]
+struct OutputMarker;
 
 fn setup(mut commands: Commands, assets: Res<AssetServer>) {
     // UI camera
     commands.spawn(Camera2d);
 
+    let output = commands
+        .spawn(Node {
+            width: Val::Px(500.),
+            max_width: Val::Px(500.),
+            min_width: Val::Px(500.),
+            ..Default::default()
+        })
+        .with_child((
+            Node {
+                width: Val::Px(500.),
+                max_width: Val::Px(500.),
+                min_width: Val::Px(500.),
+                ..Default::default()
+            },
+            Text::new("Nothing submitted."),
+            BackgroundColor(Color::BLACK),
+            OutputMarker,
+        ))
+        .id();
+
     let editor = commands
         .spawn((
-            TextInputNode::default(),
+            TextInputNode {
+                clear_on_submit: true,
+                ..Default::default()
+            },
             TextInputBuffer::default(),
             TextFont {
                 font: assets.load("fonts/FiraSans-Bold.ttf"),
@@ -32,24 +61,17 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
                 height: Val::Px(250.),
                 ..default()
             },
-            TextInputStyle {
-                selected_text_color: Some(RED.into()),
-                ..default()
-            },
+            TextInputStyle::default(),
             BackgroundColor(NAVY.into()),
         ))
         .id();
-    commands
+
+    let editor_panel = commands
         .spawn(Node {
-            width: Val::Percent(100.),
-            height: Val::Percent(100.),
-            justify_content: JustifyContent::Center,
-            align_items: AlignItems::Center,
             flex_direction: FlexDirection::Column,
-            row_gap: Val::Px(10.),
+            width: Val::Px(500.),
             ..Default::default()
         })
-        .with_child(Text::new("Text Input".to_string()))
         .add_child(editor)
         .with_children(|commands| {
             commands
@@ -237,7 +259,40 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
                             .with_child(Text::new("500w"));
                         });
                 });
-        });
+        })
+        .id();
 
-    //commands.insert_resource(InputFocus::from_entity(editor));
+    commands
+        .spawn(Node {
+            width: Val::Percent(100.),
+            height: Val::Percent(100.),
+            justify_content: JustifyContent::Center,
+            align_items: AlignItems::Center,
+            flex_direction: FlexDirection::Column,
+            row_gap: Val::Px(10.),
+            ..Default::default()
+        })
+        .with_child(Text::new("Text Input Example".to_string()))
+        .with_children(|commands| {
+            commands
+                .spawn(Node {
+                    flex_direction: FlexDirection::Row,
+                    column_gap: Val::Px(10.),
+                    ..Default::default()
+                })
+                .add_child(editor_panel)
+                .add_child(output);
+        });
+}
+
+fn submit(
+    mut events: EventReader<TextInputSubmitEvent>,
+    mut query: Query<&mut Text, With<OutputMarker>>,
+) {
+    for event in events.read() {
+        println!("submitted: {}", event.text);
+        for mut text in query.iter_mut() {
+            text.0 = event.text.clone();
+        }
+    }
 }

@@ -5,7 +5,7 @@ mod text_input_pipeline;
 use bevy::app::{Plugin, PostUpdate};
 use bevy::asset::AssetEvents;
 use bevy::color::Color;
-use bevy::color::palettes::css::{ALICE_BLUE, SKY_BLUE};
+use bevy::color::palettes::css::SKY_BLUE;
 use bevy::color::palettes::tailwind::GRAY_400;
 use bevy::ecs::component::Component;
 use bevy::ecs::entity::Entity;
@@ -19,7 +19,7 @@ use bevy::text::TextColor;
 use bevy::text::cosmic_text::{Buffer, Edit, Editor, Metrics, Wrap};
 use bevy::text::{GlyphAtlasInfo, TextFont};
 use bevy::ui::{Node, RenderUiSystem, UiSystem, extract_text_sections};
-use edit::{text_input_edit_system, update_cursor_blink_timers};
+use edit::text_input_edit_system;
 use render::extract_text_input_nodes;
 use text_input_pipeline::{
     TextInputPipeline, remove_dropped_font_atlas_sets_from_text_input_pipeline, text_input_system,
@@ -34,11 +34,7 @@ impl Plugin for TextInputPlugin {
                 PostUpdate,
                 (
                     remove_dropped_font_atlas_sets_from_text_input_pipeline.before(AssetEvents),
-                    (
-                        text_input_edit_system,
-                        update_cursor_blink_timers,
-                        text_input_system,
-                    )
+                    (text_input_edit_system, text_input_system)
                         .chain()
                         .in_set(UiSystem::PostLayout),
                 ),
@@ -67,15 +63,19 @@ impl Plugin for TextInputPlugin {
     TextColor
 )]
 pub struct TextInputNode {
+    pub clear_on_submit: bool,
     pub is_active: bool,
     pub mode: TextInputMode,
+    pub max_chars: Option<usize>,
 }
 
 impl Default for TextInputNode {
     fn default() -> Self {
         Self {
+            clear_on_submit: false,
             is_active: true,
             mode: TextInputMode::default(),
+            max_chars: None,
         }
     }
 }
@@ -117,16 +117,35 @@ impl Default for TextInputMode {
     }
 }
 
+impl TextInputMode {
+    pub fn wrap(&self) -> Wrap {
+        match self {
+            TextInputMode::Text { wrap } => *wrap,
+            _ => Wrap::None,
+        }
+    }
+}
+
 #[derive(Component, Debug)]
 pub struct TextInputBuffer {
     set_text: Option<String>,
     pub(crate) editor: Editor<'static>,
-    needs_update: bool,
-    changed: bool,
-    max_chars: Option<usize>,
-    allow_newline: bool,
     pub(crate) selection_rects: Vec<Rect>,
-    pub cursor_blink_time: f32,
+    pub(crate) cursor_blink_time: f32,
+    pub(crate) overwrite_mode: bool,
+    pub(crate) needs_update: bool,
+}
+
+impl TextInputBuffer {
+    /// set the text for the input, overwriting any existing contents.
+    pub fn set_text(&mut self, text: String) {
+        self.set_text = Some(text);
+    }
+
+    /// clear the input
+    pub fn clear(&mut self) {
+        self.set_text(String::new());
+    }
 }
 
 impl Default for TextInputBuffer {
@@ -134,12 +153,10 @@ impl Default for TextInputBuffer {
         Self {
             set_text: None,
             editor: Editor::new(Buffer::new_empty(Metrics::new(20.0, 20.0))),
-            needs_update: true,
-            changed: false,
-            max_chars: None,
-            allow_newline: true,
             selection_rects: vec![],
             cursor_blink_time: 0.,
+            overwrite_mode: false,
+            needs_update: true,
         }
     }
 }
@@ -169,7 +186,7 @@ impl Default for TextInputStyle {
         Self {
             cursor_color: GRAY_400.into(),
             selection_color: SKY_BLUE.into(),
-            selected_text_color: Some(ALICE_BLUE.into()),
+            selected_text_color: None,
             cursor_width: TextCursorWidth::Line(3.),
             cursor_radius: 0.,
             cursor_height: 1.,

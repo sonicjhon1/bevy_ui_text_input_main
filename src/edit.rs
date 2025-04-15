@@ -66,27 +66,74 @@ fn filter_text(mode: TextInputMode, text: &str) -> bool {
     matches!(mode, TextInputMode::Text { .. }) || text.chars().all(|ch| filter_char_input(mode, ch))
 }
 
+fn buffer_len(buffer: &bevy::text::cosmic_text::Buffer) -> usize {
+    buffer
+        .lines
+        .iter()
+        .map(|line| line.text().chars().count())
+        .sum()
+}
+
+fn cursor_at_buffer_end(editor: &mut BorrowedWithFontSystem<Editor<'_>>) -> bool {
+    let cursor = editor.cursor();
+    editor.with_buffer(|buffer| {
+        cursor.line == buffer.lines.len() - 1
+            && buffer
+                .lines
+                .get(cursor.line)
+                .map(|line| cursor.index == line.text().len())
+                .unwrap_or(false)
+    })
+}
+
 pub fn text_input_edit_system(
     mut shift_pressed: Local<bool>,
     mut command_pressed: Local<bool>,
     mut keyboard_events_reader: EventReader<KeyboardInput>,
-    mut query: Query<(Entity, &TextInputNode, &mut TextInputBuffer)>,
+    mut query: Query<(
+        Entity,
+        &TextInputNode,
+        &mut TextInputBuffer,
+        &TextInputStyle,
+    )>,
     mut text_input_pipeline: ResMut<TextInputPipeline>,
     mut submit_event: EventWriter<TextInputSubmitEvent>,
+    time: Res<Time>,
 ) {
     let mut clipboard = Clipboard::new();
     let keyboard_events: Vec<_> = keyboard_events_reader.read().collect();
 
     let mut font_system = &mut text_input_pipeline.font_system;
 
-    for (entity, input, mut buffer) in query.iter_mut() {
-        buffer.changed = false;
+    for (entity, input, mut buffer, style) in query.iter_mut() {
         if !input.is_active {
+            buffer.cursor_blink_time = f32::MAX;
             continue;
         }
 
-        let mut flag = false;
-        let mut editor = buffer.editor.borrow_with(&mut font_system);
+        buffer.cursor_blink_time = if keyboard_events.is_empty() {
+            (buffer.cursor_blink_time + time.delta_secs()).rem_euclid(style.blink_interval * 2.)
+        } else {
+            0.
+        };
+
+        let TextInputBuffer {
+            editor,
+            overwrite_mode,
+            ..
+        } = &mut *buffer;
+
+        let mut editor = editor.borrow_with(&mut font_system);
+
+        if editor.with_buffer(|buffer| buffer.wrap() != input.mode.wrap()) {
+            apply_motion(&mut editor, *shift_pressed, Motion::BufferStart);
+            editor.action(Action::Escape);
+
+            editor.with_buffer_mut(|buffer| {
+                buffer.set_wrap(input.mode.wrap());
+            });
+        }
+
         for event in &keyboard_events {
             match event.logical_key {
                 Key::Shift => {
@@ -104,8 +151,6 @@ pub fn text_input_edit_system(
                 }
                 _ => {}
             };
-
-            let mut changed = true;
             if event.state.is_pressed() {
                 if *command_pressed {
                     match &event.logical_key {
@@ -133,8 +178,13 @@ pub fn text_input_edit_system(
                                         // paste
                                         if let Ok(ref mut clipboard) = clipboard {
                                             if let Ok(text) = clipboard.get_text() {
-                                                if filter_text(input.mode, &text) {
-                                                    editor.insert_string(&text, None);
+                                                if input.max_chars.is_none_or(|max| {
+                                                    editor.with_buffer(buffer_len) + text.len()
+                                                        <= max
+                                                }) {
+                                                    if filter_text(input.mode, &text) {
+                                                        editor.insert_string(&text, None);
+                                                    }
                                                 }
                                             }
                                         }
@@ -181,18 +231,36 @@ pub fn text_input_edit_system(
                         }
                     }
                 } else {
-                    match &event.logical_key {
+                    let mut key = event.logical_key.clone();
+                    if event.logical_key == Key::Space {
+                        key = Key::Character(" ".into());
+                    }
+                    match key {
                         Key::Character(str) => {
                             if let Some(char) = str
                                 .chars()
                                 .next()
-                                .filter(|char| filter_char_input(input.mode, *char))
+                                .filter(|ch| filter_char_input(input.mode, *ch))
                             {
-                                editor.action(Action::Insert(char));
+                                if *overwrite_mode {
+                                    if editor.selection() != Selection::None {
+                                        editor.action(Action::Insert(char));
+                                    } else if !(cursor_at_buffer_end(&mut editor)
+                                        && input.max_chars.is_some_and(|max_chars| {
+                                            max_chars <= editor.with_buffer(buffer_len)
+                                        }))
+                                    {
+                                        editor.action(Action::Delete);
+                                        editor.action(Action::Insert(char));
+                                    }
+                                } else {
+                                    if input.max_chars.is_none_or(|max_chars| {
+                                        editor.with_buffer(buffer_len) < max_chars
+                                    }) {
+                                        editor.action(Action::Insert(char));
+                                    }
+                                }
                             }
-                        }
-                        Key::Space => {
-                            editor.action(Action::Insert(' '));
                         }
                         Key::Enter => match (*shift_pressed, input.mode) {
                             (false, TextInputMode::Text { .. }) => {
@@ -204,6 +272,14 @@ pub fn text_input_edit_system(
                                     text_input_id: entity,
                                     text,
                                 });
+
+                                if input.clear_on_submit {
+                                    editor.action(Action::Motion(Motion::BufferStart));
+                                    let cursor = editor.cursor();
+                                    editor.set_selection(Selection::Normal(cursor));
+                                    editor.action(Action::Motion(Motion::BufferEnd));
+                                    editor.action(Action::Delete);
+                                }
                             }
                         },
                         Key::Backspace => {
@@ -256,33 +332,13 @@ pub fn text_input_edit_system(
                                 editor.action(Action::Indent);
                             }
                         }
-                        _ => {
-                            changed = false;
+                        Key::Insert => {
+                            *overwrite_mode = !*overwrite_mode;
                         }
+                        _ => {}
                     }
                 }
             }
-            if changed {
-                flag = true;
-            }
-        }
-
-        buffer.changed = flag;
-    }
-}
-
-pub fn update_cursor_blink_timers(
-    time: Res<Time>,
-    mut query: Query<(&TextInputNode, &mut TextInputBuffer, &TextInputStyle)>,
-) {
-    for (input, mut buffer, style) in query.iter_mut() {
-        if !input.is_active
-            || style.blink_interval * 2. <= buffer.cursor_blink_time
-            || buffer.changed
-        {
-            buffer.cursor_blink_time = 0.;
-        } else {
-            buffer.cursor_blink_time += time.delta_secs();
         }
     }
 }
