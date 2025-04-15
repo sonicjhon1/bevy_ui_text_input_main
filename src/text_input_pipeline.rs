@@ -29,9 +29,9 @@ use bevy::text::cosmic_text::Metrics;
 use bevy::ui::ComputedNode;
 use bevy::utils::HashMap;
 
+use crate::TextInputBuffer;
 use crate::TextInputGlyph;
 use crate::TextInputLayoutInfo;
-use crate::TextInputBuffer;
 
 #[derive(Resource)]
 pub struct TextInputPipeline {

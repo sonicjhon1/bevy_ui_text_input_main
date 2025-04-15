@@ -7,7 +7,6 @@ use bevy::ecs::system::Commands;
 use bevy::ecs::system::Query;
 use bevy::ecs::system::Res;
 use bevy::ecs::system::ResMut;
-use bevy::log::info;
 use bevy::math::Mat4;
 use bevy::math::Rect;
 use bevy::math::Vec2;
