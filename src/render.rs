@@ -135,12 +135,7 @@ pub fn extract_text_input_nodes(
                         atlas_scaling: None,
                         flip_x: false,
                         flip_y: false,
-                        border_radius: ResolvedBorderRadius {
-                            top_left: 5.,
-                            top_right: 5.,
-                            bottom_left: 5.,
-                            bottom_right: 5.,
-                        },
+                        border_radius: ResolvedBorderRadius::ZERO,
                         border: BorderRect::ZERO,
                         node_type: NodeType::Rect,
                         transform: transform * Mat4::from_translation(rect.center().extend(0.)),
@@ -253,34 +248,5 @@ pub fn extract_text_input_nodes(
                 main_entity: entity.into(),
             },
         );
-
-        // extracted_uinodes.uinodes.push(ExtractedUiNode {
-        //     render_entity: commands.spawn(TemporaryRenderEntity).id(),
-        //     stack_index: uinode.stack_index,
-        //     color: LinearRgba::from(style.cursor_color),
-        //     image: AssetId::default(),
-        //     clip,
-        //     extracted_camera_entity,
-        //     rect: Rect {
-        //         min: Vec2::ZERO,
-        //         max: Vec2::new(width, cursor_height),
-        //     },
-        //     item: ExtractedUiItem::Node {
-        //         atlas_scaling: None,
-        //         flip_x: false,
-        //         flip_y: false,
-        //         border_radius: ResolvedBorderRadius {
-        //             top_left: style.radius * target.scale_factor,
-        //             top_right: style.radius * target.scale_factor,
-        //             bottom_left: style.radius * target.scale_factor,
-        //             bottom_right: style.radius * target.scale_factor,
-        //         },
-        //         border: BorderRect::ZERO,
-        //         node_type: NodeType::Rect,
-        //         transform: transform
-        //             * Mat4::from_translation(Vec3::new(x as f32, y as f32 + line_height * 0.5, 0.)),
-        //     },
-        //     main_entity: entity.into(),
-        // });
     }
 }
