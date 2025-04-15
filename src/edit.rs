@@ -18,7 +18,6 @@ use bevy::text::cosmic_text::Selection;
 use bevy::time::Time;
 
 use crate::TextInputBuffer;
-use crate::TextInputEnterMode;
 use crate::TextInputMode;
 use crate::TextInputNode;
 use crate::TextInputStyle;
@@ -43,8 +42,8 @@ fn apply_motion<'a>(
 
 fn filter_char_input(mode: TextInputMode, ch: char) -> bool {
     match mode {
-        TextInputMode::SingleLineText => ch != '\n',
-        TextInputMode::Text => {
+        TextInputMode::TextSingleLine => ch != '\n',
+        TextInputMode::Text { .. } => {
             // Allow all characters for text mode
             true
         }
@@ -64,24 +63,14 @@ fn filter_char_input(mode: TextInputMode, ch: char) -> bool {
 }
 
 fn filter_text(mode: TextInputMode, text: &str) -> bool {
-    if mode == TextInputMode::Text {
-        true
-    } else {
-        text.chars().all(|ch| filter_char_input(mode, ch))
-    }
+    matches!(mode, TextInputMode::Text { .. }) || text.chars().all(|ch| filter_char_input(mode, ch))
 }
 
 pub fn text_input_edit_system(
     mut shift_pressed: Local<bool>,
     mut command_pressed: Local<bool>,
     mut keyboard_events_reader: EventReader<KeyboardInput>,
-    mut query: Query<(
-        Entity,
-        &TextInputNode,
-        &TextInputMode,
-        &mut TextInputBuffer,
-        &TextInputStyle,
-    )>,
+    mut query: Query<(Entity, &TextInputNode, &mut TextInputBuffer)>,
     mut text_input_pipeline: ResMut<TextInputPipeline>,
     mut submit_event: EventWriter<TextInputSubmitEvent>,
 ) {
@@ -90,7 +79,7 @@ pub fn text_input_edit_system(
 
     let mut font_system = &mut text_input_pipeline.font_system;
 
-    for (entity, input, mode, mut buffer, _) in query.iter_mut() {
+    for (entity, input, mut buffer) in query.iter_mut() {
         buffer.changed = false;
         if !input.is_active {
             continue;
@@ -144,7 +133,7 @@ pub fn text_input_edit_system(
                                         // paste
                                         if let Ok(ref mut clipboard) = clipboard {
                                             if let Ok(text) = clipboard.get_text() {
-                                                if filter_text(*mode, &text) {
+                                                if filter_text(input.mode, &text) {
                                                     editor.insert_string(&text, None);
                                                 }
                                             }
@@ -197,7 +186,7 @@ pub fn text_input_edit_system(
                             if let Some(char) = str
                                 .chars()
                                 .next()
-                                .filter(|char| filter_char_input(*mode, *char))
+                                .filter(|char| filter_char_input(input.mode, *char))
                             {
                                 editor.action(Action::Insert(char));
                             }
@@ -205,28 +194,18 @@ pub fn text_input_edit_system(
                         Key::Space => {
                             editor.action(Action::Insert(' '));
                         }
-                        Key::Enter => {
-                            match (*shift_pressed, input.enter_mode, input.allow_newline) {
-                                (false, TextInputEnterMode::Newline, true) => {
-                                    editor.action(Action::Enter);
-                                }
-                                (true, TextInputEnterMode::Newline, _) => {
-                                    let text = editor.with_buffer(crate::get_text);
-                                    submit_event.send(TextInputSubmitEvent {
-                                        text_input_id: entity,
-                                        text,
-                                    });
-                                }
-                                (false, TextInputEnterMode::Submit, _) => {
-                                    let text = editor.with_buffer(crate::get_text);
-                                    submit_event.send(TextInputSubmitEvent {
-                                        text_input_id: entity,
-                                        text,
-                                    });
-                                }
-                                _ => {}
+                        Key::Enter => match (*shift_pressed, input.mode) {
+                            (false, TextInputMode::Text { .. }) => {
+                                editor.action(Action::Enter);
                             }
-                        }
+                            _ => {
+                                let text = editor.with_buffer(crate::get_text);
+                                submit_event.send(TextInputSubmitEvent {
+                                    text_input_id: entity,
+                                    text,
+                                });
+                            }
+                        },
                         Key::Backspace => {
                             editor.action(Action::Backspace);
                         }

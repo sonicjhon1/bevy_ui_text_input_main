@@ -16,7 +16,7 @@ use bevy::prelude::ReflectComponent;
 use bevy::reflect::{Reflect, std_traits::ReflectDefault};
 use bevy::render::{ExtractSchedule, RenderApp};
 use bevy::text::TextColor;
-use bevy::text::cosmic_text::{Buffer, Edit, Editor, Metrics};
+use bevy::text::cosmic_text::{Buffer, Edit, Editor, Metrics, Wrap};
 use bevy::text::{GlyphAtlasInfo, TextFont};
 use bevy::ui::{Node, RenderUiSystem, UiSystem, extract_text_sections};
 use edit::{text_input_edit_system, update_cursor_blink_timers};
@@ -61,7 +61,6 @@ impl Plugin for TextInputPlugin {
 #[require(
     Node,
     TextInputBuffer,
-    TextInputMode,
     TextFont,
     TextInputLayoutInfo,
     TextInputStyle,
@@ -69,16 +68,14 @@ impl Plugin for TextInputPlugin {
 )]
 pub struct TextInputNode {
     pub is_active: bool,
-    pub enter_mode: TextInputEnterMode,
-    pub allow_newline: bool,
+    pub mode: TextInputMode,
 }
 
 impl Default for TextInputNode {
     fn default() -> Self {
         Self {
             is_active: true,
-            enter_mode: TextInputEnterMode::Newline,
-            allow_newline: true,
+            mode: TextInputMode::default(),
         }
     }
 }
@@ -89,22 +86,35 @@ pub struct TextInputSubmitEvent {
     pub text: String,
 }
 
-#[derive(Component, Copy, Clone, Debug, Default, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum TextInputMode {
-    #[default]
-    Text,
+    /// Scrolling text input
+    /// Submit on shift-enter
+    Text { wrap: Wrap },
+    /// Single line numeric input
+    /// Scrolls horizontally
+    /// Submit on enter
     Number,
-    Hex,
+    /// Single line decimal input
+    /// Scrolls horizontally
+    /// Submit on enter
     Decimal,
-    SingleLineText,
+    /// Single line hexadecimal input
+    /// Scrolls horizontally
+    /// Submit on enter
+    Hex,
+    /// Single line text input
+    /// Scrolls horizontally
+    /// Submit on enter
+    TextSingleLine,
 }
 
-#[derive(Component, Copy, Clone, Debug, Default, PartialEq)]
-pub enum TextInputEnterMode {
-    #[default]
-    Newline,
-    Submit,
-    Ignore,
+impl Default for TextInputMode {
+    fn default() -> Self {
+        Self::Text {
+            wrap: Wrap::WordOrGlyph,
+        }
+    }
 }
 
 #[derive(Component, Debug)]

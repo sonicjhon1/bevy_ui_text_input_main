@@ -26,10 +26,8 @@ fn setup(mut commands: Commands) {
         .with_child((
             TextInputNode {
                 is_active: true,
-                enter_mode: bevy_ui_text_input::TextInputEnterMode::Submit,
-                allow_newline: false,
+                mode: TextInputMode::TextSingleLine,
             },
-            TextInputMode::SingleLineText,
             Node {
                 width: Val::Px(500.),
                 height: Val::Px(250.),

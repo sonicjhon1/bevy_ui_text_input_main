@@ -25,10 +25,9 @@ fn setup(mut commands: Commands) {
         })
         .with_child((
             TextInputNode {
-                allow_newline: false,
-                ..Default::default()
+                is_active: true,
+                mode: TextInputMode::Number,
             },
-            TextInputMode::Number,
             Node {
                 width: Val::Px(500.),
                 height: Val::Px(250.),
