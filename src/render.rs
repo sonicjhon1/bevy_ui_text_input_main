@@ -117,8 +117,13 @@ pub fn extract_text_input_nodes(
             .editor
             .with_buffer(|buffer| buffer.metrics().line_height);
 
-        for rect in &input.selection_rects {
+        for (i, rect) in input.selection_rects.iter().enumerate() {
             let id = commands.spawn(TemporaryRenderEntity).id();
+            let size = if (1..input.selection_rects.len()).contains(&i) {
+                rect.size() + Vec2::Y
+            } else {
+                rect.size()
+            };
             extracted_uinodes.uinodes.insert(
                 id,
                 ExtractedUiNode {
@@ -129,7 +134,7 @@ pub fn extract_text_input_nodes(
                     camera_entity: render_camera_entity.id(),
                     rect: Rect {
                         min: Vec2::ZERO,
-                        max: Vec2::new(rect.width(), rect.height()),
+                        max: size,
                     },
                     item: ExtractedUiItem::Node {
                         atlas_scaling: None,
