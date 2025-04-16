@@ -22,19 +22,25 @@ use bevy::ui::{Node, RenderUiSystem, UiSystem, extract_text_sections};
 use edit::text_input_edit_system;
 use render::{extract_text_input_nodes, extract_text_input_prompts};
 use text_input_pipeline::{
-    TextInputPipeline, remove_dropped_font_atlas_sets_from_text_input_pipeline, text_input_system,
+    TextInputPipeline, remove_dropped_font_atlas_sets_from_text_input_pipeline,
+    text_input_prompt_system, text_input_system,
 };
 pub struct TextInputPlugin;
 
 impl Plugin for TextInputPlugin {
     fn build(&self, app: &mut bevy::app::App) {
-        app.add_event::<TextInputSubmitEvent>()
+        app.add_event::<TextSubmittedEvent>()
+            .add_event::<SubmitTextEvent>()
             .init_resource::<TextInputPipeline>()
             .add_systems(
                 PostUpdate,
                 (
                     remove_dropped_font_atlas_sets_from_text_input_pipeline.before(AssetEvents),
-                    (text_input_edit_system, text_input_system)
+                    (
+                        text_input_edit_system,
+                        text_input_system,
+                        text_input_prompt_system,
+                    )
                         .chain()
                         .in_set(UiSystem::PostLayout),
                 ),
@@ -81,10 +87,20 @@ impl Default for TextInputNode {
     }
 }
 
+/// Sent when a text input submits its text
 #[derive(Event)]
-pub struct TextInputSubmitEvent {
-    pub text_input_id: Entity,
+pub struct TextSubmittedEvent {
+    /// The text input entity that submitted the text
+    pub entity: Entity,
+    /// The submitted text
     pub text: String,
+}
+
+/// Send to submit the text input entity's text
+#[derive(Event)]
+pub struct SubmitTextEvent {
+    /// The text input entity that should submit its text
+    pub entity: Entity,
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]

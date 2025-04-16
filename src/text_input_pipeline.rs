@@ -34,6 +34,7 @@ use crate::TextInputBuffer;
 use crate::TextInputGlyph;
 use crate::TextInputLayoutInfo;
 use crate::TextInputPrompt;
+use crate::TextInputPromptLayoutInfo;
 
 #[derive(Resource)]
 pub struct TextInputPipeline {
@@ -363,7 +364,7 @@ pub fn text_input_prompt_system(
     mut text_query: Query<(
         Ref<ComputedNode>,
         Ref<TextFont>,
-        &mut TextInputLayoutInfo,
+        &mut TextInputPromptLayoutInfo,
         &mut TextInputBuffer,
         Ref<TextInputPrompt>,
     )>,

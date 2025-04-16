@@ -17,11 +17,12 @@ use bevy::text::cosmic_text::Motion;
 use bevy::text::cosmic_text::Selection;
 use bevy::time::Time;
 
+use crate::SubmitTextEvent;
 use crate::TextInputBuffer;
 use crate::TextInputMode;
 use crate::TextInputNode;
 use crate::TextInputStyle;
-use crate::TextInputSubmitEvent;
+use crate::TextSubmittedEvent;
 use crate::text_input_pipeline::TextInputPipeline;
 
 fn apply_motion<'a>(
@@ -101,7 +102,8 @@ pub fn text_input_edit_system(
         &TextInputStyle,
     )>,
     mut text_input_pipeline: ResMut<TextInputPipeline>,
-    mut submit_event: EventWriter<TextInputSubmitEvent>,
+    mut submit_reader: EventReader<SubmitTextEvent>,
+    mut submit_writer: EventWriter<TextSubmittedEvent>,
     time: Res<Time>,
 ) {
     let mut clipboard = Clipboard::new();
@@ -272,10 +274,7 @@ pub fn text_input_edit_system(
                             }
                             _ => {
                                 let text = editor.with_buffer(crate::get_text);
-                                submit_event.send(TextInputSubmitEvent {
-                                    text_input_id: entity,
-                                    text,
-                                });
+                                submit_writer.send(TextSubmittedEvent { entity, text });
 
                                 if input.clear_on_submit {
                                     editor.action(Action::Motion(Motion::BufferStart));
@@ -343,6 +342,26 @@ pub fn text_input_edit_system(
                     }
                 }
             }
+        }
+    }
+
+    for SubmitTextEvent { entity } in submit_reader.read() {
+        let Ok((_, input, mut editor, _)) = query.get_mut(*entity) else {
+            continue;
+        };
+        let text = editor.editor.with_buffer(crate::get_text);
+        submit_writer.send(TextSubmittedEvent {
+            entity: *entity,
+            text,
+        });
+
+        if input.clear_on_submit {
+            let mut editor = editor.editor.borrow_with(&mut font_system);
+            editor.action(Action::Motion(Motion::BufferStart));
+            let cursor = editor.cursor();
+            editor.set_selection(Selection::Normal(cursor));
+            editor.action(Action::Motion(Motion::BufferEnd));
+            editor.action(Action::Delete);
         }
     }
 }

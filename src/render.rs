@@ -126,7 +126,7 @@ pub fn extract_text_input_nodes(
                 rect.size() + Vec2::Y
             } else {
                 rect.size()
-            };
+            } + 2. * Vec2::X;
             extracted_uinodes.uinodes.insert(
                 id,
                 ExtractedUiNode {
@@ -273,7 +273,6 @@ pub fn extract_text_input_prompts(
             Option<&TargetCamera>,
             &TextInputPromptLayoutInfo,
             &TextColor,
-            &TextInputStyle,
             &TextInputBuffer,
             &TextInputPrompt,
         )>,
@@ -294,7 +293,6 @@ pub fn extract_text_input_prompts(
         camera,
         text_layout_info,
         text_color,
-        style,
         input,
         prompt,
     ) in &uinode_query
