@@ -1,7 +1,6 @@
 mod edit;
 mod render;
 mod text_input_pipeline;
-pub mod undo;
 
 use bevy::app::{Plugin, PostUpdate};
 use bevy::asset::AssetEvents;
@@ -156,7 +155,7 @@ pub struct TextInputBuffer {
     pub(crate) overwrite_mode: bool,
     pub(crate) needs_update: bool,
     pub(crate) prompt_buffer: Option<Buffer>,
-    pub(crate) undo_buffer: cosmic_undo_2::Commands<Change>,
+    pub(crate) changes: cosmic_undo_2::Commands<Change>,
 }
 
 impl TextInputBuffer {
@@ -185,7 +184,7 @@ impl Default for TextInputBuffer {
             overwrite_mode: false,
             needs_update: true,
             prompt_buffer: None,
-            undo_buffer: cosmic_undo_2::Commands::default(),
+            changes: cosmic_undo_2::Commands::default(),
         }
     }
 }

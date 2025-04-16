@@ -11,6 +11,7 @@ use bevy::input::keyboard::Key;
 use bevy::input::keyboard::KeyboardInput;
 use bevy::text::cosmic_text::Action;
 use bevy::text::cosmic_text::BorrowedWithFontSystem;
+use bevy::text::cosmic_text::Change;
 use bevy::text::cosmic_text::Edit;
 use bevy::text::cosmic_text::Editor;
 use bevy::text::cosmic_text::Motion;
@@ -29,6 +30,25 @@ use crate::text_input_pipeline::TextInputPipeline;
 
 static INTEGER_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"^-?$|^-?\d+$").unwrap());
 static DECIMAL_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"^-?$|^-?\d*\.?\d*$").unwrap());
+
+fn apply_action<'a>(
+    editor: &mut BorrowedWithFontSystem<Editor<'a>>,
+    action: cosmic_undo_2::Action<&Change>,
+) {
+    match action {
+        cosmic_undo_2::Action::Do(change) => {
+            println!("do: {change:?}");
+            editor.apply_change(change);
+        }
+        cosmic_undo_2::Action::Undo(change) => {
+            //TODO: make this more efficient
+            let mut reversed = change.clone();
+            reversed.reverse();
+            println!("undo: {change:?}");
+            editor.apply_change(&reversed);
+        }
+    }
+}
 
 fn apply_motion<'a>(
     editor: &mut BorrowedWithFontSystem<Editor<'a>>,
@@ -131,7 +151,7 @@ pub fn text_input_edit_system(
         let TextInputBuffer {
             editor,
             overwrite_mode,
-            undo_buffer: commands,
+            changes: commands,
             ..
         } = &mut *buffer;
 
@@ -147,6 +167,8 @@ pub fn text_input_edit_system(
         }
 
         for event in &keyboard_events {
+            editor.start_change();
+
             match event.logical_key {
                 Key::Shift => {
                     *shift_pressed = event.state == ButtonState::Pressed;
@@ -201,8 +223,16 @@ pub fn text_input_edit_system(
                                             }
                                         }
                                     }
-                                    'z' => for action in commands.undo() {},
-                                    'y' | 'Z' => for action in commands.redo() {},
+                                    'z' => {
+                                        for action in commands.undo() {
+                                            apply_action(&mut editor, action);
+                                        }
+                                    }
+                                    'y' | 'Z' => {
+                                        for action in commands.redo() {
+                                            apply_action(&mut editor, action);
+                                        }
+                                    }
                                     'a' => {
                                         // select all
                                         editor.action(Action::Motion(Motion::BufferStart));
@@ -274,7 +304,6 @@ pub fn text_input_edit_system(
                                         if let Some(re) = re {
                                             let text = editor.with_buffer(crate::get_text);
                                             if !re.is_match(&text) {
-                                                println!("not a match {text}!");
                                                 editor.action(Action::Backspace);
                                             }
                                         }
@@ -355,6 +384,12 @@ pub fn text_input_edit_system(
                         _ => {}
                     }
                 }
+            }
+        }
+        let change = editor.finish_change();
+        if let Some(change) = change {
+            if !change.items.is_empty() {
+                commands.push(change);
             }
         }
     }
