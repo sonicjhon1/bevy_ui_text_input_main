@@ -26,8 +26,8 @@ fn setup(mut commands: Commands) {
         .with_child((
             TextInputNode {
                 is_active: true,
-                mode: TextInputMode::Integer,
-                max_chars: Some(5),
+                mode: TextInputMode::Decimal,
+                max_chars: Some(10),
                 ..Default::default()
             },
             Node {

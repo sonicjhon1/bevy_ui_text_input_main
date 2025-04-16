@@ -114,7 +114,7 @@ pub enum TextInputMode {
     /// Single line numeric input
     /// Scrolls horizontally
     /// Submit on enter
-    Number,
+    Integer,
     /// Single line decimal input
     /// Scrolls horizontally
     /// Submit on enter

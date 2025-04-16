@@ -16,6 +16,8 @@ use bevy::text::cosmic_text::Editor;
 use bevy::text::cosmic_text::Motion;
 use bevy::text::cosmic_text::Selection;
 use bevy::time::Time;
+use once_cell::sync::Lazy;
+use regex::Regex;
 
 use crate::SubmitTextEvent;
 use crate::TextInputBuffer;
@@ -24,6 +26,9 @@ use crate::TextInputNode;
 use crate::TextInputStyle;
 use crate::TextSubmittedEvent;
 use crate::text_input_pipeline::TextInputPipeline;
+
+static INTEGER_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"^-?$|^-?\d+$").unwrap());
+static DECIMAL_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"^-?$|^-?\d*\.?\d*$").unwrap());
 
 fn apply_motion<'a>(
     editor: &mut BorrowedWithFontSystem<Editor<'a>>,
@@ -48,7 +53,7 @@ fn filter_char_input(mode: TextInputMode, ch: char) -> bool {
             // Allow all characters for text mode
             true
         }
-        TextInputMode::Number => {
+        TextInputMode::Integer => {
             // Allow only numeric characters
             ch.is_ascii_digit() || ch == '-'
         }
@@ -264,6 +269,18 @@ pub fn text_input_edit_system(
                                         editor.with_buffer(buffer_len) < max_chars
                                     }) {
                                         editor.action(Action::Insert(char));
+                                        let re = match input.mode {
+                                            TextInputMode::Integer => Some(&INTEGER_RE),
+                                            TextInputMode::Decimal => Some(&DECIMAL_RE),
+                                            _ => None,
+                                        };
+                                        if let Some(re) = re {
+                                            let text = editor.with_buffer(crate::get_text);
+                                            if !re.is_match(&text) {
+                                                println!("not a match {text}!");
+                                                editor.action(Action::Backspace);
+                                            }
+                                        }
                                     }
                                 }
                             }
