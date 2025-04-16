@@ -2,7 +2,7 @@
 
 use bevy::{color::palettes::css::NAVY, prelude::*};
 use bevy_ui_text_input::{
-    TextInputMode, TextInputNode, TextInputPlugin, TextInputPrompt, TextSubmittedEvent,
+    TextInputMode, TextInputNode, TextInputPlugin, TextInputPrompt, TextSubmissionEvent,
 };
 
 fn main() {
@@ -51,7 +51,7 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
         .with_child(Text::new("submit something.."));
 }
 
-fn update(mut events: EventReader<TextSubmittedEvent>, mut query: Query<&mut Text>) {
+fn update(mut events: EventReader<TextSubmissionEvent>, mut query: Query<&mut Text>) {
     for event in events.read() {
         for mut text in query.iter_mut() {
             text.0 = event.text.clone();

@@ -24,7 +24,7 @@ use crate::TextInputBuffer;
 use crate::TextInputMode;
 use crate::TextInputNode;
 use crate::TextInputStyle;
-use crate::TextSubmittedEvent;
+use crate::TextSubmissionEvent;
 use crate::text_input_pipeline::TextInputPipeline;
 
 static INTEGER_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"^-?$|^-?\d+$").unwrap());
@@ -108,7 +108,7 @@ pub fn text_input_edit_system(
     )>,
     mut text_input_pipeline: ResMut<TextInputPipeline>,
     mut submit_reader: EventReader<SubmitTextEvent>,
-    mut submit_writer: EventWriter<TextSubmittedEvent>,
+    mut submit_writer: EventWriter<TextSubmissionEvent>,
     time: Res<Time>,
 ) {
     let mut clipboard = Clipboard::new();
@@ -291,7 +291,7 @@ pub fn text_input_edit_system(
                             }
                             _ => {
                                 let text = editor.with_buffer(crate::get_text);
-                                submit_writer.send(TextSubmittedEvent { entity, text });
+                                submit_writer.send(TextSubmissionEvent { entity, text });
 
                                 if input.clear_on_submit {
                                     editor.action(Action::Motion(Motion::BufferStart));
@@ -367,7 +367,7 @@ pub fn text_input_edit_system(
             continue;
         };
         let text = editor.editor.with_buffer(crate::get_text);
-        submit_writer.send(TextSubmittedEvent {
+        submit_writer.send(TextSubmissionEvent {
             entity: *entity,
             text,
         });

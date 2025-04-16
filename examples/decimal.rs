@@ -1,12 +1,13 @@
 //! minimal text input example
 
 use bevy::{color::palettes::css::NAVY, prelude::*};
-use bevy_ui_text_input::{TextInputMode, TextInputNode, TextInputPlugin};
+use bevy_ui_text_input::{TextInputMode, TextInputNode, TextInputPlugin, TextSubmissionEvent};
 
 fn main() {
     App::new()
         .add_plugins((DefaultPlugins, TextInputPlugin))
         .add_systems(Startup, setup)
+        .add_systems(Update, reciever)
         .run();
 }
 
@@ -30,11 +31,22 @@ fn setup(mut commands: Commands) {
                 max_chars: Some(10),
                 ..Default::default()
             },
+            TextFont {
+                font_size: 20.,
+                ..Default::default()
+            },
             Node {
-                width: Val::Px(500.),
-                height: Val::Px(250.),
+                width: Val::Px(100.),
+                height: Val::Px(20.),
                 ..default()
             },
             BackgroundColor(NAVY.into()),
         ));
+}
+
+fn reciever(mut events: EventReader<TextSubmissionEvent>) {
+    for event in events.read() {
+        let d: f64 = event.text.parse().unwrap();
+        println!("decimal: {}", d);
+    }
 }

@@ -6,7 +6,7 @@ use bevy::{
 };
 use bevy_ui_text_input::{
     SubmitTextEvent, TextInputBuffer, TextInputNode, TextInputPlugin, TextInputPrompt,
-    TextInputStyle, TextSubmittedEvent,
+    TextInputStyle, TextSubmissionEvent,
 };
 
 fn main() {
@@ -387,7 +387,7 @@ fn button_system(
 }
 
 fn submit(
-    mut events: EventReader<TextSubmittedEvent>,
+    mut events: EventReader<TextSubmissionEvent>,
     mut query: Query<&mut Text, With<OutputMarker>>,
 ) {
     for event in events.read() {

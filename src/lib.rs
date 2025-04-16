@@ -31,7 +31,7 @@ pub struct TextInputPlugin;
 
 impl Plugin for TextInputPlugin {
     fn build(&self, app: &mut bevy::app::App) {
-        app.add_event::<TextSubmittedEvent>()
+        app.add_event::<TextSubmissionEvent>()
             .add_event::<SubmitTextEvent>()
             .init_resource::<TextInputPipeline>()
             .add_systems(
@@ -92,7 +92,7 @@ impl Default for TextInputNode {
 
 /// Sent when a text input submits its text
 #[derive(Event)]
-pub struct TextSubmittedEvent {
+pub struct TextSubmissionEvent {
     /// The text input entity that submitted the text
     pub entity: Entity,
     /// The submitted text
