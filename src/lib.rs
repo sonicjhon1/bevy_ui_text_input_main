@@ -1,6 +1,7 @@
 mod edit;
 mod render;
 mod text_input_pipeline;
+pub mod undo;
 
 use bevy::app::{Plugin, PostUpdate};
 use bevy::asset::AssetEvents;
@@ -18,7 +19,7 @@ use bevy::prelude::ReflectComponent;
 use bevy::reflect::{Reflect, std_traits::ReflectDefault};
 use bevy::render::{ExtractSchedule, RenderApp};
 use bevy::text::TextColor;
-use bevy::text::cosmic_text::{Buffer, Edit, Editor, Metrics, Wrap};
+use bevy::text::cosmic_text::{Buffer, Change, Edit, Editor, Metrics, Wrap};
 use bevy::text::{GlyphAtlasInfo, TextFont};
 use bevy::ui::{Node, RenderUiSystem, UiSystem, extract_text_sections};
 use edit::text_input_edit_system;
@@ -155,6 +156,7 @@ pub struct TextInputBuffer {
     pub(crate) overwrite_mode: bool,
     pub(crate) needs_update: bool,
     pub(crate) prompt_buffer: Option<Buffer>,
+    pub(crate) undo_buffer: cosmic_undo_2::Commands<Change>,
 }
 
 impl TextInputBuffer {
@@ -183,6 +185,7 @@ impl Default for TextInputBuffer {
             overwrite_mode: false,
             needs_update: true,
             prompt_buffer: None,
+            undo_buffer: cosmic_undo_2::Commands::default(),
         }
     }
 }

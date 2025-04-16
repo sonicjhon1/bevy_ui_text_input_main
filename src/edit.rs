@@ -131,6 +131,7 @@ pub fn text_input_edit_system(
         let TextInputBuffer {
             editor,
             overwrite_mode,
+            undo_buffer: commands,
             ..
         } = &mut *buffer;
 
@@ -200,12 +201,8 @@ pub fn text_input_edit_system(
                                             }
                                         }
                                     }
-                                    'z' => {
-                                        // undo
-                                    }
-                                    'y' | 'Z' => {
-                                        // redo
-                                    }
+                                    'z' => for action in commands.undo() {},
+                                    'y' | 'Z' => for action in commands.redo() {},
                                     'a' => {
                                         // select all
                                         editor.action(Action::Motion(Motion::BufferStart));
