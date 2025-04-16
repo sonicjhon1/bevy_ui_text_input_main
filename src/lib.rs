@@ -10,7 +10,9 @@ use bevy::color::palettes::tailwind::GRAY_400;
 use bevy::ecs::component::Component;
 use bevy::ecs::entity::Entity;
 use bevy::ecs::event::Event;
+use bevy::ecs::query::Changed;
 use bevy::ecs::schedule::IntoSystemConfigs;
+use bevy::ecs::system::Query;
 use bevy::math::{Rect, Vec2};
 use bevy::prelude::ReflectComponent;
 use bevy::reflect::{Reflect, std_traits::ReflectDefault};
@@ -38,6 +40,7 @@ impl Plugin for TextInputPlugin {
                     remove_dropped_font_atlas_sets_from_text_input_pipeline.before(AssetEvents),
                     (
                         text_input_edit_system,
+                        update_text_input_contents,
                         text_input_system,
                         text_input_prompt_system,
                     )
@@ -79,7 +82,7 @@ pub struct TextInputNode {
 impl Default for TextInputNode {
     fn default() -> Self {
         Self {
-            clear_on_submit: false,
+            clear_on_submit: true,
             is_active: true,
             mode: TextInputMode::default(),
             max_chars: None,
@@ -297,4 +300,26 @@ pub struct TextInputGlyph {
     pub line_index: usize,
     pub byte_index: usize,
     pub byte_length: usize,
+}
+
+#[derive(Default, Debug, Component, PartialEq)]
+pub struct TextInputContents {
+    text: String,
+}
+
+impl TextInputContents {
+    pub fn get(&self) -> &str {
+        &self.text
+    }
+}
+
+pub fn update_text_input_contents(
+    mut query: Query<(&TextInputBuffer, &mut TextInputContents), Changed<TextInputBuffer>>,
+) {
+    for (buffer, mut contents) in query.iter_mut() {
+        let text = buffer.get_text();
+        if contents.text != text {
+            contents.text = text;
+        }
+    }
 }
