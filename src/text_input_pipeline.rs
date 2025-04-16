@@ -373,9 +373,13 @@ pub fn text_input_prompt_system(
         let layout_info = text_input_layout_info.into_inner();
         let y_axis_orientation = YAxisOrientation::TopToBottom;
         if prompt.is_changed()
+            || editor.prompt_buffer.is_none()
+            || layout_info.glyphs.is_empty()
             || text_font.is_changed() && prompt.font.is_none()
             || node.is_changed()
         {
+            layout_info.glyphs.clear();
+
             if prompt.text.is_empty() {
                 editor.prompt_buffer = None;
                 continue;
@@ -439,8 +443,6 @@ pub fn text_input_prompt_system(
                 attrs,
                 cosmic_text::Shaping::Advanced,
             );
-
-            layout_info.glyphs.clear();
 
             let box_size = buffer_dimensions(buffer);
             let result = buffer.layout_runs().try_for_each(|run| {

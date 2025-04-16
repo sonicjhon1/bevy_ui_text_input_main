@@ -1,6 +1,9 @@
 //! text input example
 
-use bevy::{color::palettes::css::LIGHT_GOLDENROD_YELLOW, prelude::*};
+use bevy::{
+    color::palettes::css::{LIGHT_GOLDENROD_YELLOW, MAROON, RED},
+    prelude::*,
+};
 use bevy_ui_text_input::{
     SubmitTextEvent, TextInputBuffer, TextInputNode, TextInputPlugin, TextInputPrompt,
     TextInputStyle, TextSubmittedEvent,
@@ -10,7 +13,7 @@ fn main() {
     App::new()
         .add_plugins((DefaultPlugins, TextInputPlugin))
         .add_systems(Startup, setup)
-        .add_systems(Update, submit)
+        .add_systems(Update, (button_system, submit))
         .run();
 }
 
@@ -93,6 +96,7 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
                 ..Default::default()
             },
             BorderColor(Color::WHITE),
+            Button,
         ))
         .with_child(Text::new("Submit"))
         .observe(
@@ -137,7 +141,7 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
                                 padding: UiRect::all(Val::Px(2.)),
                                 ..Default::default()
                             },
-                            BorderColor(Color::WHITE),
+                            BorderColor(Color::WHITE), Button
                         ))
                         .with_child(Text::new("sans"))
                         .observe(
@@ -156,7 +160,7 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
                                 padding: UiRect::all(Val::Px(2.)),
                                 ..Default::default()
                             },
-                            BorderColor(Color::WHITE),
+                            BorderColor(Color::WHITE), Button
                         ))
                         .observe(
                             move |_: Trigger<Pointer<Click>>,
@@ -183,7 +187,7 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
                                 padding: UiRect::all(Val::Px(2.)),
                                 ..Default::default()
                             },
-                            BorderColor(Color::WHITE),
+                            BorderColor(Color::WHITE), Button
                         ))
                         .observe(
                             move |_: Trigger<Pointer<Click>>, mut query: Query<&mut TextFont>| {
@@ -201,7 +205,7 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
                                 padding: UiRect::all(Val::Px(2.)),
                                 ..Default::default()
                             },
-                            BorderColor(Color::WHITE),
+                            BorderColor(Color::WHITE), Button
                         ))
                         .observe(
                             move |_: Trigger<Pointer<Click>>, mut query: Query<&mut TextFont>| {
@@ -227,51 +231,7 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
                                 padding: UiRect::all(Val::Px(2.)),
                                 ..Default::default()
                             },
-                            BorderColor(Color::WHITE),
-                        ))
-                        .observe(
-                            move |_: Trigger<Pointer<Click>>, mut query: Query<&mut Node>| {
-                                if let Ok(mut node) = query.get_mut(editor) {
-                                    node.height = Val::Px(250.);
-                                }
-                            },
-                        )
-                        .with_child(Text::new("250h"));
-
-                            commands
-                        .spawn((
-                            Node {
-                                border: UiRect::all(Val::Px(2.)),
-                                padding: UiRect::all(Val::Px(2.)),
-                                ..Default::default()
-                            },
-                            BorderColor(Color::WHITE),
-                        ))
-                        .observe(
-                            move |_: Trigger<Pointer<Click>>, mut query: Query<&mut Node>| {
-                                if let Ok(mut node) = query.get_mut(editor) {
-                                    node.height = Val::Px(500.);
-                                }
-                            },
-                        )
-                        .with_child(Text::new("500h"));
-                        });
-
-                    commands
-                        .spawn(Node {
-                            flex_direction: FlexDirection::Column,
-                            row_gap: Val::Px(4.),
-                            ..Default::default()
-                        })
-                        .with_children(|commands| {
-                            commands
-                        .spawn((
-                            Node {
-                                border: UiRect::all(Val::Px(2.)),
-                                padding: UiRect::all(Val::Px(2.)),
-                                ..Default::default()
-                            },
-                            BorderColor(Color::WHITE),
+                            BorderColor(Color::WHITE), Button
                         ))
                         .observe(
                             move |_: Trigger<Pointer<Click>>, mut query: Query<&mut Node>| {
@@ -289,7 +249,7 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
                                 padding: UiRect::all(Val::Px(2.)),
                                 ..Default::default()
                             },
-                            BorderColor(Color::WHITE),
+                            BorderColor(Color::WHITE), Button
                         ))
                         .observe(
                             move |_: Trigger<Pointer<Click>>, mut query: Query<&mut Node>| {
@@ -300,21 +260,74 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
                         )
                         .with_child(Text::new("500w"));
                         });
+
+                    commands
+                        .spawn(Node {
+                            flex_direction: FlexDirection::Column,
+                            row_gap: Val::Px(4.),
+                            ..Default::default()
+                        })
+                        .with_children(|commands| {
+                            commands
+                        .spawn((
+                            Node {
+                                border: UiRect::all(Val::Px(2.)),
+                                padding: UiRect::all(Val::Px(2.)),
+                                ..Default::default()
+                            },
+                            BorderColor(Color::WHITE), Button
+                        ))
+                        .observe(
+                            move |_: Trigger<Pointer<Click>>, mut query: Query<&mut Node>| {
+                                if let Ok(mut node) = query.get_mut(editor) {
+                                    node.height = Val::Px(250.);
+                                }
+                            },
+                        )
+                        .with_child(Text::new("250h"));
+
+                            commands
+                        .spawn((
+                            Node {
+                                border: UiRect::all(Val::Px(2.)),
+                                padding: UiRect::all(Val::Px(2.)),
+                                ..Default::default()
+                            },
+                            BorderColor(Color::WHITE), Button
+                        ))
+                        .observe(
+                            move |_: Trigger<Pointer<Click>>, mut query: Query<&mut Node>| {
+                                if let Ok(mut node) = query.get_mut(editor) {
+                                    node.height = Val::Px(500.);
+                                }
+                            },
+                        )
+                        .with_child(Text::new("500h"));
+                        });
                 });
         })
         .id();
 
     let editor_panel = commands
-        .spawn((
-            Node {
-                border: UiRect::all(Val::Px(2.)),
-                padding: UiRect::all(Val::Px(2.)),
-                ..Default::default()
-            },
-            BorderColor(Color::WHITE),
-            BackgroundColor(Color::BLACK),
-        ))
-        .add_child(editor)
+        .spawn(Node {
+            width: Val::Px(504.),
+            justify_content: JustifyContent::Start,
+            align_items: AlignItems::Start,
+            ..Default::default()
+        })
+        .with_children(|commands| {
+            commands
+                .spawn((
+                    Node {
+                        border: UiRect::all(Val::Px(2.)),
+                        padding: UiRect::all(Val::Px(2.)),
+                        ..Default::default()
+                    },
+                    BorderColor(Color::WHITE),
+                    BackgroundColor(Color::BLACK),
+                ))
+                .add_child(editor);
+        })
         .id();
 
     commands
@@ -345,6 +358,32 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
                     "Press Shift + Enter or click the button to submit",
                 ));
         });
+}
+
+fn button_system(
+    mut interaction_query: Query<
+        (&Interaction, &mut BorderColor, &Children),
+        (Changed<Interaction>, With<Button>),
+    >,
+    mut text_query: Query<&mut TextColor>,
+) {
+    for (interaction, mut border_color, children) in &mut interaction_query {
+        let mut color = text_query.get_mut(children[0]).unwrap();
+        match *interaction {
+            Interaction::Pressed => {
+                color.0 = MAROON.into();
+                border_color.0 = MAROON.into();
+            }
+            Interaction::Hovered => {
+                color.0 = RED.into();
+                border_color.0 = RED.into();
+            }
+            Interaction::None => {
+                color.0 = Color::WHITE;
+                border_color.0 = Color::WHITE;
+            }
+        }
+    }
 }
 
 fn submit(

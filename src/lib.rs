@@ -164,6 +164,10 @@ impl TextInputBuffer {
     pub fn clear(&mut self) {
         self.set_text(String::new());
     }
+
+    pub fn get_text(&self) -> String {
+        self.editor.with_buffer(get_text)
+    }
 }
 
 impl Default for TextInputBuffer {
@@ -182,7 +186,7 @@ impl Default for TextInputBuffer {
 
 /// Prompt displayed when the input is empty (including whitespace).
 /// Optional component.
-#[derive(Default, Component, Clone, Debug, Reflect)]
+#[derive(Component, Clone, Debug, Reflect)]
 #[reflect(Component, Default, Debug)]
 #[require(TextInputPromptLayoutInfo)]
 pub struct TextInputPrompt {
@@ -194,6 +198,16 @@ pub struct TextInputPrompt {
     /// The color of the prompt's text.
     /// If none, the text input's `TextColor` is used.
     pub color: Option<Color>,
+}
+
+impl Default for TextInputPrompt {
+    fn default() -> Self {
+        Self {
+            text: "Enter some text here".into(),
+            font: None,
+            color: Some(bevy::color::palettes::css::GRAY.into()),
+        }
+    }
 }
 
 /// Styling for a text cursor
@@ -227,12 +241,6 @@ impl Default for TextInputStyle {
             cursor_height: 1.,
             blink_interval: 0.5,
         }
-    }
-}
-
-impl TextInputBuffer {
-    pub fn get_text(&self) -> String {
-        self.editor.with_buffer(|buffer| get_text(buffer))
     }
 }
 
