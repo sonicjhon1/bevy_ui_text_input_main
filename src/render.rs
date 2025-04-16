@@ -35,7 +35,10 @@ use crate::TextCursorWidth;
 use crate::TextInputBuffer;
 use crate::TextInputGlyph;
 use crate::TextInputLayoutInfo;
+use crate::TextInputPrompt;
+use crate::TextInputPromptLayoutInfo;
 use crate::TextInputStyle;
+use crate::edit::is_buffer_empty;
 
 pub fn extract_text_input_nodes(
     mut commands: Commands,
@@ -253,5 +256,116 @@ pub fn extract_text_input_nodes(
                 main_entity: entity.into(),
             },
         );
+    }
+}
+
+pub fn extract_text_input_prompts(
+    mut commands: Commands,
+    mut extracted_uinodes: ResMut<ExtractedUiNodes>,
+    texture_atlases: Extract<Res<Assets<TextureAtlasLayout>>>,
+    uinode_query: Extract<
+        Query<(
+            Entity,
+            &ComputedNode,
+            &GlobalTransform,
+            &ViewVisibility,
+            Option<&CalculatedClip>,
+            Option<&TargetCamera>,
+            &TextInputPromptLayoutInfo,
+            &TextColor,
+            &TextInputStyle,
+            &TextInputBuffer,
+            &TextInputPrompt,
+        )>,
+    >,
+    mapping: Extract<Query<&RenderEntity>>,
+    default_ui_camera: Extract<DefaultUiCamera>,
+) {
+    let mut start = extracted_uinodes.glyphs.len();
+    let mut end = start + 1;
+
+    let default_ui_camera = default_ui_camera.get();
+    for (
+        entity,
+        uinode,
+        global_transform,
+        view_visibility,
+        clip,
+        camera,
+        text_layout_info,
+        text_color,
+        style,
+        input,
+        prompt,
+    ) in &uinode_query
+    {
+        // only display the prompt if the text input is empty, including whitespace
+        if !input.editor.with_buffer(is_buffer_empty) {
+            continue;
+        }
+
+        let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera) else {
+            continue;
+        };
+
+        // Skip if not visible or if size is set to zero (e.g. when a parent is set to `Display::None`)
+        if !view_visibility.get() || uinode.is_empty() {
+            continue;
+        }
+
+        let Ok(&render_camera_entity) = mapping.get(camera_entity) else {
+            continue;
+        };
+
+        let color = prompt.color.unwrap_or(text_color.0).to_linear();
+
+        let transform = global_transform.affine()
+            * bevy::math::Affine3A::from_translation((-0.5 * uinode.size()).extend(0.));
+
+        let node_rect = Rect::from_center_size(
+            global_transform.translation().truncate(),
+            uinode.size() * global_transform.scale().truncate(),
+        );
+
+        let clip = Some(
+            clip.map(|clip| clip.clip.intersect(node_rect))
+                .unwrap_or(node_rect),
+        );
+
+        for TextInputGlyph {
+            position,
+            atlas_info,
+            ..
+        } in text_layout_info.glyphs.iter()
+        {
+            let rect = texture_atlases
+                .get(&atlas_info.texture_atlas)
+                .unwrap()
+                .textures[atlas_info.location.glyph_index]
+                .as_rect();
+            extracted_uinodes.glyphs.push(ExtractedGlyph {
+                transform: transform * Mat4::from_translation(position.extend(0.)),
+                rect,
+            });
+            extracted_uinodes.uinodes.insert(
+                commands.spawn(TemporaryRenderEntity).id(),
+                ExtractedUiNode {
+                    stack_index: uinode.stack_index(),
+                    color,
+                    image: atlas_info.texture.id(),
+                    clip,
+                    rect,
+                    item: ExtractedUiItem::Glyphs {
+                        range: start..end,
+                        atlas_scaling: Vec2::ONE,
+                    },
+                    main_entity: entity.into(),
+                    camera_entity: render_camera_entity.id(),
+                },
+            );
+
+            start = end;
+            end += 1;
+        }
     }
 }

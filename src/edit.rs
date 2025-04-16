@@ -86,6 +86,10 @@ fn cursor_at_buffer_end(editor: &mut BorrowedWithFontSystem<Editor<'_>>) -> bool
     })
 }
 
+pub(crate) fn is_buffer_empty(buffer: &bevy::text::cosmic_text::Buffer) -> bool {
+    buffer.lines.len() == 0 || (buffer.lines.len() == 1 && buffer.lines[0].text().is_empty())
+}
+
 pub fn text_input_edit_system(
     mut shift_pressed: Local<bool>,
     mut command_pressed: Local<bool>,

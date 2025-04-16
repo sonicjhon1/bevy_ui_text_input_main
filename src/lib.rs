@@ -20,7 +20,7 @@ use bevy::text::cosmic_text::{Buffer, Edit, Editor, Metrics, Wrap};
 use bevy::text::{GlyphAtlasInfo, TextFont};
 use bevy::ui::{Node, RenderUiSystem, UiSystem, extract_text_sections};
 use edit::text_input_edit_system;
-use render::extract_text_input_nodes;
+use render::{extract_text_input_nodes, extract_text_input_prompts};
 use text_input_pipeline::{
     TextInputPipeline, remove_dropped_font_atlas_sets_from_text_input_pipeline, text_input_system,
 };
@@ -46,7 +46,8 @@ impl Plugin for TextInputPlugin {
 
         render_app.add_systems(
             ExtractSchedule,
-            extract_text_input_nodes
+            (extract_text_input_prompts, extract_text_input_nodes)
+                .chain()
                 .in_set(RenderUiSystem::ExtractText)
                 .after(extract_text_sections),
         );
@@ -134,6 +135,7 @@ pub struct TextInputBuffer {
     pub(crate) cursor_blink_time: f32,
     pub(crate) overwrite_mode: bool,
     pub(crate) needs_update: bool,
+    pub(crate) prompt_buffer: Option<Buffer>,
 }
 
 impl TextInputBuffer {
@@ -157,8 +159,25 @@ impl Default for TextInputBuffer {
             cursor_blink_time: 0.,
             overwrite_mode: false,
             needs_update: true,
+            prompt_buffer: None,
         }
     }
+}
+
+/// Prompt displayed when the input is empty (including whitespace).
+/// Optional component.
+#[derive(Default, Component, Clone, Debug, Reflect)]
+#[reflect(Component, Default, Debug)]
+#[require(TextInputPromptLayoutInfo)]
+pub struct TextInputPrompt {
+    /// Prompt's text
+    pub text: String,
+    /// The prompt's font.
+    /// If none, the text input's font is used.
+    pub font: Option<TextFont>,
+    /// The color of the prompt's text.
+    /// If none, the text input's `TextColor` is used.
+    pub color: Option<Color>,
 }
 
 /// Styling for a text cursor
@@ -234,6 +253,13 @@ impl Default for TextCursorWidth {
 #[derive(Component, Clone, Default, Debug, Reflect)]
 #[reflect(Component, Default, Debug)]
 pub struct TextInputLayoutInfo {
+    pub glyphs: Vec<TextInputGlyph>,
+    pub size: Vec2,
+}
+
+#[derive(Component, Clone, Default, Debug, Reflect)]
+#[reflect(Component, Default, Debug)]
+pub struct TextInputPromptLayoutInfo {
     pub glyphs: Vec<TextInputGlyph>,
     pub size: Vec2,
 }

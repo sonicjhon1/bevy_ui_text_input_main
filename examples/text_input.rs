@@ -1,11 +1,12 @@
 //! text input example
 
 use bevy::{
-    color::palettes::css::{NAVY, YELLOW},
+    color::palettes::css::{BROWN, NAVY, YELLOW},
     prelude::*,
 };
 use bevy_ui_text_input::{
-    TextInputBuffer, TextInputNode, TextInputPlugin, TextInputStyle, TextInputSubmitEvent,
+    TextInputBuffer, TextInputNode, TextInputPlugin, TextInputPrompt, TextInputStyle,
+    TextInputSubmitEvent,
 };
 
 fn main() {
@@ -47,6 +48,12 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
         .spawn((
             TextInputNode {
                 clear_on_submit: true,
+                ..Default::default()
+            },
+            TextInputPrompt {
+                text: "This text from TextInputPrompt is displayed when the input is empty."
+                    .to_string(),
+                color: Some(BROWN.into()),
                 ..Default::default()
             },
             TextInputBuffer::default(),

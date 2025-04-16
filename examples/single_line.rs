@@ -28,6 +28,7 @@ fn setup(mut commands: Commands) {
                 is_active: true,
                 mode: TextInputMode::TextSingleLine,
                 max_chars: Some(200),
+                ..Default::default()
             },
             Node {
                 width: Val::Px(500.),
