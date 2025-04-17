@@ -294,7 +294,6 @@ pub fn text_input_system(
                 if let Some((start, end)) = selection
                     .filter(|&(start, end)| !(start.index == end.index && start.line == end.line))
                 {
-                    info!("{:?}, {:?}", start, end);
                     let metrics = buffer.metrics();
                     let mut y1 = -buffer.scroll().vertical;
                     for (i, line) in buffer.lines.iter().enumerate() {
