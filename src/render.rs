@@ -17,8 +17,11 @@ use bevy::render::sync_world::TemporaryRenderEntity;
 use bevy::render::view::ViewVisibility;
 use bevy::sprite::BorderRect;
 use bevy::sprite::TextureAtlasLayout;
+
 use bevy::text::TextColor;
+use bevy::text::cosmic_text::Cursor;
 use bevy::text::cosmic_text::Edit;
+use bevy::text::cosmic_text::LayoutRun;
 use bevy::transform::components::GlobalTransform;
 use bevy::ui::CalculatedClip;
 use bevy::ui::ComputedNode;
@@ -31,7 +34,6 @@ use bevy::ui::NodeType;
 use bevy::ui::ResolvedBorderRadius;
 use bevy::ui::TargetCamera;
 
-use crate::TextCursorWidth;
 use crate::TextInputBuffer;
 use crate::TextInputGlyph;
 use crate::TextInputLayoutInfo;
@@ -219,10 +221,30 @@ pub fn extract_text_input_nodes(
             continue;
         };
 
+        let x = x as f32;
+        let y = y as f32;
+
         let scale_factor = uinode.inverse_scale_factor().recip();
-        let width = match style.cursor_width {
-            TextCursorWidth::Block => 3. * scale_factor,
-            TextCursorWidth::Line(width) => width * scale_factor,
+        let width = if input.overwrite_mode {
+            let c = input.editor.cursor();
+            input.editor.with_buffer(|buffer| {
+                if let Some(line) = buffer.lines.get(c.line) {
+                    if let Some(layout_lines) = line.layout_opt() {
+                        for layout_line in layout_lines.iter() {
+                            if let Some(g) = layout_line
+                                .glyphs
+                                .iter()
+                                .find(|glyph| c.index == glyph.start)
+                            {
+                                return g.w;
+                            }
+                        }
+                    }
+                }
+                style.cursor_width * scale_factor
+            })
+        } else {
+            style.cursor_width * scale_factor
         };
 
         let id = commands.spawn(TemporaryRenderEntity).id();
@@ -248,8 +270,8 @@ pub fn extract_text_input_nodes(
                     node_type: NodeType::Rect,
                     transform: transform
                         * Mat4::from_translation(Vec3::new(
-                            x as f32,
-                            y as f32 + line_height * 0.5,
+                            x + 0.5 * width,
+                            y + 0.5 * line_height,
                             0.,
                         )),
                 },
