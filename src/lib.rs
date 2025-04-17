@@ -18,7 +18,7 @@ use bevy::ecs::world::DeferredWorld;
 use bevy::math::{Rect, Vec2};
 use bevy::picking::events::{Click, Pointer};
 use bevy::prelude::ReflectComponent;
-use bevy::prelude::info;
+
 use bevy::reflect::{Reflect, std_traits::ReflectDefault};
 use bevy::render::{ExtractSchedule, RenderApp};
 use bevy::text::TextColor;
@@ -245,7 +245,7 @@ pub struct TextInputStyle {
     /// Selected text tint, if unset uses the `TextColor`
     pub selected_text_color: Option<Color>,
     /// Width of the cursor
-    pub cursor_width: TextCursorWidth,
+    pub cursor_width: f32,
     /// Corner radius in logical pixels
     pub cursor_radius: f32,
     /// Normalized height of the cursor relative to the text block's line height.
@@ -260,7 +260,7 @@ impl Default for TextInputStyle {
             cursor_color: GRAY_400.into(),
             selection_color: SKY_BLUE.into(),
             selected_text_color: None,
-            cursor_width: TextCursorWidth::Line(3.),
+            cursor_width: 3.,
             cursor_radius: 0.,
             cursor_height: 1.,
             blink_interval: 0.5,
@@ -280,22 +280,6 @@ fn get_text(buffer: &Buffer) -> String {
             out.push_str(line);
             out
         })
-}
-
-/// Width of the text cursor
-#[derive(Copy, Clone, Debug, PartialEq, Reflect)]
-#[reflect(Default, Debug, PartialEq)]
-pub enum TextCursorWidth {
-    /// Cursor is a block covering the glyph
-    Block,
-    /// Cursor is a vertical line, the associated value is the line's width in logical pixels
-    Line(f32),
-}
-
-impl Default for TextCursorWidth {
-    fn default() -> Self {
-        Self::Line(3.)
-    }
 }
 
 #[derive(Component, Clone, Default, Debug, Reflect)]
