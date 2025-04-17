@@ -11,6 +11,7 @@ use bevy::ecs::system::ResMut;
 use bevy::ecs::system::Resource;
 use bevy::ecs::world::Ref;
 use bevy::image::Image;
+use bevy::log::info;
 use bevy::math::Rect;
 use bevy::math::UVec2;
 use bevy::math::Vec2;
@@ -290,7 +291,10 @@ pub fn text_input_system(
                     });
 
                 selection_rects.clear();
-                if let Some((start, end)) = selection {
+                if let Some((start, end)) = selection
+                    .filter(|&(start, end)| !(start.index == end.index && start.line == end.line))
+                {
+                    info!("{:?}, {:?}", start, end);
                     let metrics = buffer.metrics();
                     let mut y1 = -buffer.scroll().vertical;
                     for (i, line) in buffer.lines.iter().enumerate() {

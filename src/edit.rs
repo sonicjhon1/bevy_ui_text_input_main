@@ -2,6 +2,7 @@ use arboard::Clipboard;
 use bevy::ecs::entity::Entity;
 use bevy::ecs::event::EventReader;
 use bevy::ecs::event::EventWriter;
+use bevy::ecs::observer::Trigger;
 use bevy::ecs::system::Local;
 use bevy::ecs::system::Query;
 use bevy::ecs::system::Res;
@@ -9,14 +10,23 @@ use bevy::ecs::system::ResMut;
 use bevy::input::ButtonState;
 use bevy::input::keyboard::Key;
 use bevy::input::keyboard::KeyboardInput;
+use bevy::math::Rect;
+use bevy::picking::events::Click;
+use bevy::picking::events::Down;
+use bevy::picking::events::Drag;
+use bevy::picking::events::Pointer;
+use bevy::picking::events::Up;
 use bevy::text::cosmic_text::Action;
 use bevy::text::cosmic_text::BorrowedWithFontSystem;
 use bevy::text::cosmic_text::Change;
 use bevy::text::cosmic_text::Edit;
 use bevy::text::cosmic_text::Editor;
+use bevy::text::cosmic_text::FontSystem;
 use bevy::text::cosmic_text::Motion;
 use bevy::text::cosmic_text::Selection;
 use bevy::time::Time;
+use bevy::transform::components::GlobalTransform;
+use bevy::ui::ComputedNode;
 use once_cell::sync::Lazy;
 use regex::Regex;
 
@@ -413,4 +423,80 @@ pub fn text_input_edit_system(
             editor.action(Action::Delete);
         }
     }
+}
+
+// pub(crate) fn on_click_text_input(
+//     trigger: Trigger<Pointer<Click>>,
+//     mut node_query: Query<(&ComputedNode, &GlobalTransform, &mut TextInputBuffer)>,
+//     mut text_input_pipeline: ResMut<TextInputPipeline>,
+// ) {
+//     let Ok((node, transform, mut buffer)) = node_query.get_mut(trigger.target) else {
+//         return;
+//     };
+
+//     if buffer.dragging {
+//         return;
+//     }
+
+//     let rect = Rect::from_center_size(transform.translation().truncate(), node.size());
+
+//     let position =
+//         trigger.pointer_location.position * node.inverse_scale_factor().recip() - rect.min;
+
+//     let mut editor = buffer
+//         .editor
+//         .borrow_with(&mut text_input_pipeline.font_system);
+
+//     editor.action(Action::Click {
+//         x: position.x as i32,
+//         y: position.y as i32,
+//     });
+// }
+
+pub(crate) fn on_drag_text_input(
+    trigger: Trigger<Pointer<Drag>>,
+    mut node_query: Query<(&ComputedNode, &GlobalTransform, &mut TextInputBuffer)>,
+    mut text_input_pipeline: ResMut<TextInputPipeline>,
+) {
+    let Ok((node, transform, mut buffer)) = node_query.get_mut(trigger.target) else {
+        return;
+    };
+
+    let rect = Rect::from_center_size(transform.translation().truncate(), node.size());
+
+    let position =
+        trigger.pointer_location.position * node.inverse_scale_factor().recip() - rect.min;
+
+    let mut editor = buffer
+        .editor
+        .borrow_with(&mut text_input_pipeline.font_system);
+
+    editor.action(Action::Drag {
+        x: position.x as i32,
+        y: position.y as i32,
+    });
+}
+
+pub(crate) fn on_down_text_input(
+    trigger: Trigger<Pointer<Down>>,
+    mut node_query: Query<(&ComputedNode, &GlobalTransform, &mut TextInputBuffer)>,
+    mut text_input_pipeline: ResMut<TextInputPipeline>,
+) {
+    let Ok((node, transform, mut buffer)) = node_query.get_mut(trigger.target) else {
+        return;
+    };
+
+    let rect = Rect::from_center_size(transform.translation().truncate(), node.size());
+
+    let position =
+        trigger.pointer_location.position * node.inverse_scale_factor().recip() - rect.min;
+
+    let mut editor = buffer
+        .editor
+        .borrow_with(&mut text_input_pipeline.font_system);
+
+    editor.action(Action::Click {
+        x: position.x as i32,
+        y: position.y as i32,
+    });
 }

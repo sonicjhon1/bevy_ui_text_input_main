@@ -7,21 +7,25 @@ use bevy::asset::AssetEvents;
 use bevy::color::Color;
 use bevy::color::palettes::css::SKY_BLUE;
 use bevy::color::palettes::tailwind::GRAY_400;
-use bevy::ecs::component::Component;
+use bevy::ecs::component::{Component, ComponentId};
 use bevy::ecs::entity::Entity;
 use bevy::ecs::event::Event;
+use bevy::ecs::observer::{Observer, Trigger};
 use bevy::ecs::query::Changed;
 use bevy::ecs::schedule::IntoSystemConfigs;
 use bevy::ecs::system::Query;
+use bevy::ecs::world::DeferredWorld;
 use bevy::math::{Rect, Vec2};
+use bevy::picking::events::{Click, Pointer};
 use bevy::prelude::ReflectComponent;
+use bevy::prelude::info;
 use bevy::reflect::{Reflect, std_traits::ReflectDefault};
 use bevy::render::{ExtractSchedule, RenderApp};
 use bevy::text::TextColor;
 use bevy::text::cosmic_text::{Buffer, Change, Edit, Editor, Metrics, Wrap};
 use bevy::text::{GlyphAtlasInfo, TextFont};
 use bevy::ui::{Node, RenderUiSystem, UiSystem, extract_text_sections};
-use edit::text_input_edit_system;
+use edit::{on_down_text_input, on_drag_text_input, text_input_edit_system};
 use render::{extract_text_input_nodes, extract_text_input_prompts};
 use text_input_pipeline::{
     TextInputPipeline, remove_dropped_font_atlas_sets_from_text_input_pipeline,
@@ -72,6 +76,9 @@ impl Plugin for TextInputPlugin {
     TextInputStyle,
     TextColor
 )]
+#[component(
+    on_add = on_add_textinputnode,
+)]
 pub struct TextInputNode {
     pub clear_on_submit: bool,
     pub is_active: bool,
@@ -87,6 +94,16 @@ impl Default for TextInputNode {
             mode: TextInputMode::default(),
             max_chars: None,
         }
+    }
+}
+
+fn on_add_textinputnode(mut world: DeferredWorld, entity: Entity, _component_id: ComponentId) {
+    for mut observer in [
+        Observer::new(on_drag_text_input),
+        Observer::new(on_down_text_input),
+    ] {
+        observer.watch_entity(entity);
+        world.commands().spawn(observer);
     }
 }
 
@@ -156,6 +173,7 @@ pub struct TextInputBuffer {
     pub(crate) needs_update: bool,
     pub(crate) prompt_buffer: Option<Buffer>,
     pub(crate) changes: cosmic_undo_2::Commands<Change>,
+    pub(crate) dragging: bool,
 }
 
 impl TextInputBuffer {
@@ -185,6 +203,7 @@ impl Default for TextInputBuffer {
             needs_update: true,
             prompt_buffer: None,
             changes: cosmic_undo_2::Commands::default(),
+            dragging: false,
         }
     }
 }
