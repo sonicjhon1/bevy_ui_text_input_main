@@ -54,15 +54,7 @@ fn setup(mut commands: Commands, mut active_input: ResMut<ActiveTextInput>) {
             row_gap: Val::Px(10.),
             ..Default::default()
         })
-        .with_child((
-            TextInputNode::default(),
-            Node {
-                width: Val::Px(500.),
-                height: Val::Px(250.),
-                ..default()
-            },
-            BackgroundColor(NAVY.into()),
-        ));
+        .add_child(input_entity);
 }
 
 fn fps_system(diagnostics: Res<DiagnosticsStore>) {

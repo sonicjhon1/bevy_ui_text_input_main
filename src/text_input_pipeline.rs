@@ -14,7 +14,6 @@ use bevy::image::Image;
 use bevy::math::Rect;
 use bevy::math::UVec2;
 use bevy::math::Vec2;
-use bevy::pbr::deferred::DEFERRED_LIGHTING_SHADER_HANDLE;
 use bevy::sprite::TextureAtlasLayout;
 use bevy::text::Font;
 use bevy::text::FontAtlasSet;
