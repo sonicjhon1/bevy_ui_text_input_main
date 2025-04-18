@@ -41,17 +41,15 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Center,
             flex_direction: FlexDirection::Column,
-            row_gap: Val::Px(10.),
-            column_gap: Val::Px(10.),
             ..Default::default()
         })
         .with_children(|commands| {
             commands
                 .spawn(Node {
                     display: Display::Grid,
-                    grid_template_columns: vec![GridTrack::auto(), GridTrack::auto()],
-                    column_gap: Val::Px(10.),
-                    row_gap: Val::Px(10.),
+                    grid_template_columns: vec![GridTrack::auto(), GridTrack::px(300.)],
+                    column_gap: Val::Px(20.),
+                    row_gap: Val::Px(20.),
                     ..Default::default()
                 })
                 .with_children(|commands| {
@@ -90,6 +88,7 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
                     }
                 });
         });
+    commands.insert_resource(map);
 }
 
 fn update(

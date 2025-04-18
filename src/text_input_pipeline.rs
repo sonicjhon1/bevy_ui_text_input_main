@@ -30,7 +30,6 @@ use bevy::text::cosmic_text::Metrics;
 use bevy::ui::ComputedNode;
 use bevy::utils::HashMap;
 
-use crate::ActiveTextInput;
 use crate::TextInputBuffer;
 use crate::TextInputGlyph;
 use crate::TextInputLayoutInfo;
