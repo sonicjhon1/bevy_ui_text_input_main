@@ -393,10 +393,12 @@ pub fn text_input_edit_system(
                         editor.action(Action::Escape);
                     }
                     Key::Tab => {
-                        if *shift_pressed {
-                            editor.action(Action::Unindent);
-                        } else {
-                            editor.action(Action::Indent);
+                        if matches!(input.mode, TextInputMode::Text { .. }) {
+                            if *shift_pressed {
+                                editor.action(Action::Unindent);
+                            } else {
+                                editor.action(Action::Indent);
+                            }
                         }
                     }
                     Key::Insert => {
