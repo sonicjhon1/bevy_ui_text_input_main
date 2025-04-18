@@ -7,6 +7,8 @@ version = "0.1.0"
 edition = "2024"
 license = "MIT OR Apache-2.0"
 readme = "README.md"
+repository = "https://github.com/ickshonpe/bevy_ui_text_input"
+
 
 [dependencies]
 bevy = { version = "0.15", features = ["bevy_asset", "bevy_ui"] }
