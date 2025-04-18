@@ -14,6 +14,7 @@ use bevy::image::Image;
 use bevy::math::Rect;
 use bevy::math::UVec2;
 use bevy::math::Vec2;
+use bevy::pbr::deferred::DEFERRED_LIGHTING_SHADER_HANDLE;
 use bevy::sprite::TextureAtlasLayout;
 use bevy::text::Font;
 use bevy::text::FontAtlasSet;
@@ -201,10 +202,21 @@ pub fn text_input_system(
 
         if editor.redraw() {
             layout_info.glyphs.clear();
+            selection_rects.clear();
 
             let result = editor.with_buffer_mut(|buffer| {
                 let box_size = buffer_dimensions(buffer);
                 let result = buffer.layout_runs().try_for_each(|run| {
+                    if let Some(selection) = selection {
+                        if let Some((x0, w)) = run.highlight(selection.0, selection.1) {
+                            let y0 = run.line_top;
+                            let y1 = y0 + run.line_height;
+                            let x1 = x0 + w;
+                            let r = Rect::new(x0, y0, x1, y1);
+                            selection_rects.push(r);
+                        }
+                    }
+
                     let result = run
                         .glyphs
                         .iter()
@@ -288,52 +300,6 @@ pub fn text_input_system(
                             layout_info.glyphs.push(pos_glyph);
                             Ok(())
                         });
-
-                    selection_rects.clear();
-                    if let Some((start, end)) = selection.filter(|&(start, end)| {
-                        !(start.index == end.index && start.line == end.line)
-                    }) {
-                        let metrics = buffer.metrics();
-                        let mut y1 = -buffer.scroll().vertical;
-                        for (i, line) in buffer.lines.iter().enumerate() {
-                            if !(start.line..=end.line).contains(&i) {
-                                y1 += metrics.line_height
-                                    * line
-                                        .layout_opt()
-                                        .as_ref()
-                                        .map(|layout_lines| layout_lines.len())
-                                        .unwrap_or(0) as f32;
-                                continue;
-                            }
-                            if let Some(layout_lines) = line.layout_opt() {
-                                for layout_line in layout_lines.iter() {
-                                    let y0 = y1;
-                                    y1 += metrics.line_height;
-
-                                    let Some(x0) = layout_line.glyphs.iter().find_map(|glyph| {
-                                        (start.line < i || start.index <= glyph.start)
-                                            .then_some(glyph.x)
-                                    }) else {
-                                        continue;
-                                    };
-
-                                    let Some(x1) =
-                                        layout_line.glyphs.iter().rev().find_map(|glyph| {
-                                            (i < end.line || glyph.start < end.index)
-                                                .then_some(glyph.x + glyph.w)
-                                        })
-                                    else {
-                                        continue;
-                                    };
-
-                                    if (start.line..=end.line).contains(&i) {
-                                        let r = Rect::new(x0, y0, x1, y1);
-                                        selection_rects.push(r);
-                                    }
-                                }
-                            }
-                        }
-                    }
 
                     result
                 });
