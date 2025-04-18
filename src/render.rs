@@ -102,14 +102,12 @@ pub fn extract_text_input_nodes(
             .map(|selection_color| selection_color.to_linear())
             .unwrap_or(color);
 
-        let sx = input_buffer
+        let scroll = input_buffer
             .editor
-            .with_buffer(|buffer| buffer.scroll().horizontal);
+            .with_buffer(|buffer| Vec2::new(buffer.scroll().horizontal, 0.)); // buffer.scroll().vertical));
 
         let transform = global_transform.affine()
-            * bevy::math::Affine3A::from_translation(
-                (-0.5 * uinode.size() - sx * Vec2::X).extend(0.),
-            );
+            * bevy::math::Affine3A::from_translation((-0.5 * uinode.size() - scroll).extend(0.));
 
         let node_rect = Rect::from_center_size(
             global_transform.translation().truncate(),

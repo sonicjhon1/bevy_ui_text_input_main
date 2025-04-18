@@ -10,11 +10,14 @@ use bevy::ecs::system::ResMut;
 use bevy::input::ButtonState;
 use bevy::input::keyboard::Key;
 use bevy::input::keyboard::KeyboardInput;
+use bevy::input::mouse::MouseScrollUnit;
+use bevy::input::mouse::MouseWheel;
 use bevy::log::warn_once;
 use bevy::math::Rect;
 use bevy::picking::events::Down;
 use bevy::picking::events::Drag;
 use bevy::picking::events::Pointer;
+use bevy::picking::focus::HoverMap;
 use bevy::picking::pointer::PointerButton;
 use bevy::text::cosmic_text::Action;
 use bevy::text::cosmic_text::BorrowedWithFontSystem;
@@ -47,14 +50,11 @@ fn apply_action<'a>(
 ) {
     match action {
         cosmic_undo_2::Action::Do(change) => {
-            println!("do: {change:?}");
             editor.apply_change(change);
         }
         cosmic_undo_2::Action::Undo(change) => {
-            //TODO: make this more efficient
             let mut reversed = change.clone();
             reversed.reverse();
-            println!("undo: {change:?}");
             editor.apply_change(&reversed);
         }
     }
@@ -270,10 +270,14 @@ pub fn text_input_edit_system(
                         apply_motion(&mut editor, *shift_pressed, Motion::NextWord);
                     }
                     Key::ArrowUp => {
-                        editor.action(Action::Scroll { lines: -1 });
+                        if matches!(input.mode, TextInputMode::Text { .. }) {
+                            editor.action(Action::Scroll { lines: -1 });
+                        }
                     }
                     Key::ArrowDown => {
-                        editor.action(Action::Scroll { lines: 1 });
+                        if matches!(input.mode, TextInputMode::Text { .. }) {
+                            editor.action(Action::Scroll { lines: 1 });
+                        }
                     }
                     Key::Home => {
                         apply_motion(&mut editor, *shift_pressed, Motion::BufferStart);
@@ -473,8 +477,10 @@ pub(crate) fn on_drag_text_input(
         .editor
         .borrow_with(&mut text_input_pipeline.font_system);
 
+    let scroll = editor.with_buffer(|buffer| buffer.scroll());
+
     editor.action(Action::Drag {
-        x: position.x as i32,
+        x: position.x as i32 + scroll.horizontal as i32,
         y: position.y as i32,
     });
 }
@@ -515,8 +521,51 @@ pub(crate) fn on_down_text_input(
         .editor
         .borrow_with(&mut text_input_pipeline.font_system);
 
+    let scroll = editor.with_buffer(|buffer| buffer.scroll());
+
     editor.action(Action::Click {
-        x: position.x as i32,
+        x: position.x as i32 + scroll.horizontal as i32,
         y: position.y as i32,
     });
+}
+
+/// Updates the scroll position of scrollable nodes in response to mouse input
+pub fn mouse_wheel_scroll(
+    mut mouse_wheel_events: EventReader<MouseWheel>,
+    hover_map: Res<HoverMap>,
+    mut node_query: Query<(&mut TextInputBuffer, &TextInputNode)>,
+    mut text_input_pipeline: ResMut<TextInputPipeline>,
+) {
+    for mouse_wheel_event in mouse_wheel_events.read() {
+        for (_, pointer_map) in hover_map.iter() {
+            for (entity, _) in pointer_map.iter() {
+                let Ok((mut buffer, input)) = node_query.get_mut(*entity) else {
+                    continue;
+                };
+
+                if !matches!(input.mode, TextInputMode::Text { .. }) {
+                    continue;
+                }
+
+                match mouse_wheel_event.unit {
+                    MouseScrollUnit::Line => {
+                        let mut editor = buffer
+                            .editor
+                            .borrow_with(&mut text_input_pipeline.font_system);
+
+                        editor.action(Action::Scroll {
+                            lines: -mouse_wheel_event.y as i32,
+                        });
+                    }
+                    MouseScrollUnit::Pixel => {
+                        buffer.editor.with_buffer_mut(|buffer| {
+                            let mut scroll = buffer.scroll();
+                            scroll.vertical -= mouse_wheel_event.y;
+                            buffer.set_scroll(scroll);
+                        });
+                    }
+                };
+            }
+        }
+    }
 }

@@ -33,6 +33,7 @@ use bevy::utils::HashMap;
 use crate::TextInputBuffer;
 use crate::TextInputGlyph;
 use crate::TextInputLayoutInfo;
+use crate::TextInputNode;
 use crate::TextInputPrompt;
 use crate::TextInputPromptLayoutInfo;
 
@@ -120,19 +121,20 @@ pub fn text_input_system(
         Ref<TextFont>,
         &mut TextInputLayoutInfo,
         &mut TextInputBuffer,
+        Ref<TextInputNode>,
     )>,
 ) {
-    for (node, text_font, text_input_layout_info, mut editor) in text_query.iter_mut() {
+    for (node, text_font, text_input_layout_info, mut editor, input) in text_query.iter_mut() {
         let layout_info = text_input_layout_info.into_inner();
         let y_axis_orientation = YAxisOrientation::TopToBottom;
         if editor.needs_update
             || editor.set_text.is_some()
             || text_font.is_changed()
             || node.is_changed()
+            || input.is_changed()
         {
             let text = editor.set_text.take().unwrap_or_else(|| editor.get_text());
 
-            let linebreak = LineBreak::WordBoundary;
             let bounds = TextBounds {
                 width: Some(node.size().x),
                 height: Some(node.size().y),
@@ -159,15 +161,7 @@ pub fn text_input_system(
 
                 buffer.set_metrics_and_size(font_system, metrics, bounds.width, bounds.height);
 
-                buffer.set_wrap(
-                    font_system,
-                    match linebreak {
-                        LineBreak::WordBoundary => cosmic_text::Wrap::Word,
-                        LineBreak::AnyCharacter => cosmic_text::Wrap::Glyph,
-                        LineBreak::WordOrCharacter => cosmic_text::Wrap::WordOrGlyph,
-                        LineBreak::NoWrap => cosmic_text::Wrap::None,
-                    },
-                );
+                buffer.set_wrap(font_system, input.mode.wrap());
 
                 let attrs = cosmic_text::Attrs::new()
                     .metadata(0)
@@ -178,6 +172,9 @@ pub fn text_input_system(
                     .metrics(metrics);
 
                 buffer.set_text(font_system, &text, attrs, cosmic_text::Shaping::Advanced);
+                for buffer_line in buffer.lines.iter_mut() {
+                    buffer_line.set_align(input.alignment);
+                }
 
                 Ok(())
             });
@@ -202,157 +199,163 @@ pub fn text_input_system(
             ..
         } = &mut *editor;
 
-        layout_info.glyphs.clear();
+        if editor.redraw() {
+            layout_info.glyphs.clear();
 
-        let result = editor.with_buffer_mut(|buffer| {
-            let box_size = buffer_dimensions(buffer);
-            let result = buffer.layout_runs().try_for_each(|run| {
-                let result = run
-                    .glyphs
-                    .iter()
-                    .map(move |layout_glyph| (layout_glyph, run.line_y, run.line_i))
-                    .try_for_each(|(layout_glyph, line_y, line_i)| {
-                        let mut temp_glyph;
-                        let span_index = layout_glyph.metadata;
-                        let font_id = text_font.font.id();
-                        let font_smoothing = text_font.font_smoothing;
+            let result = editor.with_buffer_mut(|buffer| {
+                let box_size = buffer_dimensions(buffer);
+                let result = buffer.layout_runs().try_for_each(|run| {
+                    let result = run
+                        .glyphs
+                        .iter()
+                        .map(move |layout_glyph| (layout_glyph, run.line_y, run.line_i))
+                        .try_for_each(|(layout_glyph, line_y, line_i)| {
+                            let mut temp_glyph;
+                            let span_index = layout_glyph.metadata;
+                            let font_id = text_font.font.id();
+                            let font_smoothing = text_font.font_smoothing;
 
-                        let layout_glyph = if font_smoothing == FontSmoothing::None {
-                            // If font smoothing is disabled, round the glyph positions and sizes,
-                            // effectively discarding all subpixel layout.
-                            temp_glyph = layout_glyph.clone();
-                            temp_glyph.x = temp_glyph.x.round();
-                            temp_glyph.y = temp_glyph.y.round();
-                            temp_glyph.w = temp_glyph.w.round();
-                            temp_glyph.x_offset = temp_glyph.x_offset.round();
-                            temp_glyph.y_offset = temp_glyph.y_offset.round();
-                            temp_glyph.line_height_opt = temp_glyph.line_height_opt.map(f32::round);
+                            let layout_glyph = if font_smoothing == FontSmoothing::None {
+                                // If font smoothing is disabled, round the glyph positions and sizes,
+                                // effectively discarding all subpixel layout.
+                                temp_glyph = layout_glyph.clone();
+                                temp_glyph.x = temp_glyph.x.round();
+                                temp_glyph.y = temp_glyph.y.round();
+                                temp_glyph.w = temp_glyph.w.round();
+                                temp_glyph.x_offset = temp_glyph.x_offset.round();
+                                temp_glyph.y_offset = temp_glyph.y_offset.round();
+                                temp_glyph.line_height_opt =
+                                    temp_glyph.line_height_opt.map(f32::round);
 
-                            &temp_glyph
-                        } else {
-                            layout_glyph
-                        };
+                                &temp_glyph
+                            } else {
+                                layout_glyph
+                            };
 
-                        let TextInputPipeline {
-                            font_system,
-                            swash_cache,
-                            font_atlas_sets,
-                            ..
-                        } = &mut *text_input_pipeline;
+                            let TextInputPipeline {
+                                font_system,
+                                swash_cache,
+                                font_atlas_sets,
+                                ..
+                            } = &mut *text_input_pipeline;
 
-                        let font_atlas_set = font_atlas_sets.entry(font_id).or_default();
+                            let font_atlas_set = font_atlas_sets.entry(font_id).or_default();
 
-                        let physical_glyph = layout_glyph.physical((0., 0.), 1.);
+                            let physical_glyph = layout_glyph.physical((0., 0.), 1.);
 
-                        let atlas_info = font_atlas_set
-                            .get_glyph_atlas_info(physical_glyph.cache_key, font_smoothing)
-                            .map(Ok)
-                            .unwrap_or_else(|| {
-                                font_atlas_set.add_glyph_to_atlas(
-                                    &mut texture_atlases,
-                                    &mut textures,
-                                    font_system,
-                                    swash_cache,
-                                    layout_glyph,
-                                    font_smoothing,
-                                )
-                            })?;
+                            let atlas_info = font_atlas_set
+                                .get_glyph_atlas_info(physical_glyph.cache_key, font_smoothing)
+                                .map(Ok)
+                                .unwrap_or_else(|| {
+                                    font_atlas_set.add_glyph_to_atlas(
+                                        &mut texture_atlases,
+                                        &mut textures,
+                                        font_system,
+                                        swash_cache,
+                                        layout_glyph,
+                                        font_smoothing,
+                                    )
+                                })?;
 
-                        let texture_atlas = texture_atlases.get(&atlas_info.texture_atlas).unwrap();
-                        let location = atlas_info.location;
-                        let glyph_rect = texture_atlas.textures[location.glyph_index];
-                        let left = location.offset.x as f32;
-                        let top = location.offset.y as f32;
-                        let glyph_size = UVec2::new(glyph_rect.width(), glyph_rect.height());
+                            let texture_atlas =
+                                texture_atlases.get(&atlas_info.texture_atlas).unwrap();
+                            let location = atlas_info.location;
+                            let glyph_rect = texture_atlas.textures[location.glyph_index];
+                            let left = location.offset.x as f32;
+                            let top = location.offset.y as f32;
+                            let glyph_size = UVec2::new(glyph_rect.width(), glyph_rect.height());
 
-                        // offset by half the size because the origin is center
-                        let x = glyph_size.x as f32 / 2.0 + left + physical_glyph.x as f32;
-                        let y = line_y.round() + physical_glyph.y as f32 - top
-                            + glyph_size.y as f32 / 2.0;
-                        let y = match y_axis_orientation {
-                            YAxisOrientation::TopToBottom => y,
-                            YAxisOrientation::BottomToTop => box_size.y - y,
-                        };
+                            // offset by half the size because the origin is center
+                            let x = glyph_size.x as f32 / 2.0 + left + physical_glyph.x as f32;
+                            let y = line_y.round() + physical_glyph.y as f32 - top
+                                + glyph_size.y as f32 / 2.0;
+                            let y = match y_axis_orientation {
+                                YAxisOrientation::TopToBottom => y,
+                                YAxisOrientation::BottomToTop => box_size.y - y,
+                            };
 
-                        let position = Vec2::new(x, y);
+                            let position = Vec2::new(x, y);
 
-                        let pos_glyph = TextInputGlyph {
-                            position,
-                            size: glyph_size.as_vec2(),
-                            atlas_info,
-                            span_index,
-                            byte_index: layout_glyph.start,
-                            byte_length: layout_glyph.end - layout_glyph.start,
-                            line_index: line_i,
-                        };
-                        layout_info.glyphs.push(pos_glyph);
-                        Ok(())
-                    });
+                            let pos_glyph = TextInputGlyph {
+                                position,
+                                size: glyph_size.as_vec2(),
+                                atlas_info,
+                                span_index,
+                                byte_index: layout_glyph.start,
+                                byte_length: layout_glyph.end - layout_glyph.start,
+                                line_index: line_i,
+                            };
+                            layout_info.glyphs.push(pos_glyph);
+                            Ok(())
+                        });
 
-                selection_rects.clear();
-                if let Some((start, end)) = selection
-                    .filter(|&(start, end)| !(start.index == end.index && start.line == end.line))
-                {
-                    let metrics = buffer.metrics();
-                    let mut y1 = -buffer.scroll().vertical;
-                    for (i, line) in buffer.lines.iter().enumerate() {
-                        if !(start.line..=end.line).contains(&i) {
-                            y1 += metrics.line_height
-                                * line
-                                    .layout_opt()
-                                    .as_ref()
-                                    .map(|layout_lines| layout_lines.len())
-                                    .unwrap_or(0) as f32;
-                            continue;
-                        }
-                        if let Some(layout_lines) = line.layout_opt() {
-                            for layout_line in layout_lines.iter() {
-                                let y0 = y1;
-                                y1 += metrics.line_height;
+                    selection_rects.clear();
+                    if let Some((start, end)) = selection.filter(|&(start, end)| {
+                        !(start.index == end.index && start.line == end.line)
+                    }) {
+                        let metrics = buffer.metrics();
+                        let mut y1 = -buffer.scroll().vertical;
+                        for (i, line) in buffer.lines.iter().enumerate() {
+                            if !(start.line..=end.line).contains(&i) {
+                                y1 += metrics.line_height
+                                    * line
+                                        .layout_opt()
+                                        .as_ref()
+                                        .map(|layout_lines| layout_lines.len())
+                                        .unwrap_or(0) as f32;
+                                continue;
+                            }
+                            if let Some(layout_lines) = line.layout_opt() {
+                                for layout_line in layout_lines.iter() {
+                                    let y0 = y1;
+                                    y1 += metrics.line_height;
 
-                                let Some(x0) = layout_line.glyphs.iter().find_map(|glyph| {
-                                    (start.line < i || start.index <= glyph.start)
-                                        .then_some(glyph.x)
-                                }) else {
-                                    continue;
-                                };
+                                    let Some(x0) = layout_line.glyphs.iter().find_map(|glyph| {
+                                        (start.line < i || start.index <= glyph.start)
+                                            .then_some(glyph.x)
+                                    }) else {
+                                        continue;
+                                    };
 
-                                let Some(x1) = layout_line.glyphs.iter().rev().find_map(|glyph| {
-                                    (i < end.line || glyph.start < end.index)
-                                        .then_some(glyph.x + glyph.w)
-                                }) else {
-                                    continue;
-                                };
+                                    let Some(x1) =
+                                        layout_line.glyphs.iter().rev().find_map(|glyph| {
+                                            (i < end.line || glyph.start < end.index)
+                                                .then_some(glyph.x + glyph.w)
+                                        })
+                                    else {
+                                        continue;
+                                    };
 
-                                if (start.line..=end.line).contains(&i) {
-                                    let r = Rect::new(x0, y0, x1, y1);
-                                    selection_rects.push(r);
+                                    if (start.line..=end.line).contains(&i) {
+                                        let r = Rect::new(x0, y0, x1, y1);
+                                        selection_rects.push(r);
+                                    }
                                 }
                             }
                         }
                     }
-                }
 
-                result
+                    result
+                });
+
+                // Check result.
+                result?;
+
+                layout_info.size = box_size;
+                Ok(())
             });
 
-            // Check result.
-            result?;
-
-            layout_info.size = box_size;
-            Ok(())
-        });
-
-        match result {
-            Err(TextError::NoSuchFont) => {
-                // There was an error processing the text layout, try again next frame
-            }
-            Err(e @ (TextError::FailedToAddGlyph(_) | TextError::FailedToGetGlyphImage(_))) => {
-                panic!("Fatal error when processing text: {e}.");
-            }
-            Ok(()) => {
-                layout_info.size.x = layout_info.size.x * node.inverse_scale_factor();
-                layout_info.size.y = layout_info.size.y * node.inverse_scale_factor();
+            match result {
+                Err(TextError::NoSuchFont) => {
+                    // There was an error processing the text layout, try again next frame
+                }
+                Err(e @ (TextError::FailedToAddGlyph(_) | TextError::FailedToGetGlyphImage(_))) => {
+                    panic!("Fatal error when processing text: {e}.");
+                }
+                Ok(()) => {
+                    layout_info.size.x = layout_info.size.x * node.inverse_scale_factor();
+                    layout_info.size.y = layout_info.size.y * node.inverse_scale_factor();
+                }
             }
         }
     }
