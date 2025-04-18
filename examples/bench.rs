@@ -6,7 +6,7 @@ use bevy::{
     prelude::*,
     window::{PresentMode, WindowResolution},
 };
-use bevy_ui_text_input::{TextInputNode, TextInputPlugin};
+use bevy_ui_text_input::{ActiveTextInput, TextInputNode, TextInputPlugin};
 
 fn main() {
     App::new()
@@ -28,9 +28,22 @@ fn main() {
         .run();
 }
 
-fn setup(mut commands: Commands) {
+fn setup(mut commands: Commands, mut active_input: ResMut<ActiveTextInput>) {
     // UI camera
     commands.spawn(Camera2d);
+
+    let input_entity = commands
+        .spawn((
+            TextInputNode::default(),
+            Node {
+                width: Val::Px(500.),
+                height: Val::Px(250.),
+                ..default()
+            },
+            BackgroundColor(NAVY.into()),
+        ))
+        .id();
+    active_input.set(input_entity);
     commands
         .spawn(Node {
             width: Val::Percent(100.),

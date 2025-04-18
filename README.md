@@ -1,5 +1,8 @@
 ## Bevy UI Text Input
 
+Text input crate for Bevy UI using cosmic text
+
+
 ### Features
 
 * Undo + Redo
@@ -18,9 +21,16 @@
 * Scroll Line Up & Down
 * Max characters limit
 
-### Not supported
+### Weaknesses
+* Overwrite cursor 
+*  
+
+### Not supported (at least yet)
 
 * IME
 * Responsive sizing
 * Rich text
 * Syntax highlighting
+* World UI
+* Text2d
+* Onscreen keyboard

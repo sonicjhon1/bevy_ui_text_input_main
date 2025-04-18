@@ -29,7 +29,6 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
         })
         .with_child((
             TextInputNode {
-                is_active: true,
                 mode: TextInputMode::TextSingleLine,
                 max_chars: Some(20),
                 clear_on_submit: true,

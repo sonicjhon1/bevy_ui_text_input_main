@@ -13,19 +13,10 @@ fn main() {
 fn setup(mut commands: Commands) {
     // UI camera
     commands.spawn(Camera2d);
-    commands
-        .spawn(Node {
-            width: Val::Percent(100.),
-            height: Val::Percent(100.),
-            justify_content: JustifyContent::Center,
-            align_items: AlignItems::Center,
-            flex_direction: FlexDirection::Column,
-            row_gap: Val::Px(10.),
-            ..Default::default()
-        })
-        .with_child((
+
+    let input_node = commands
+        .spawn((
             TextInputNode {
-                is_active: true,
                 mode: TextInputMode::Integer,
                 max_chars: Some(5),
                 ..Default::default()
@@ -36,5 +27,18 @@ fn setup(mut commands: Commands) {
                 ..default()
             },
             BackgroundColor(NAVY.into()),
-        ));
+        ))
+        .id();
+
+    commands
+        .spawn(Node {
+            width: Val::Percent(100.),
+            height: Val::Percent(100.),
+            justify_content: JustifyContent::Center,
+            align_items: AlignItems::Center,
+            flex_direction: FlexDirection::Column,
+            row_gap: Val::Px(10.),
+            ..Default::default()
+        })
+        .add_child(input_node);
 }

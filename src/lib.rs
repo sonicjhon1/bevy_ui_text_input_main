@@ -5,19 +5,18 @@ mod text_input_pipeline;
 use bevy::app::{Plugin, PostUpdate};
 use bevy::asset::AssetEvents;
 use bevy::color::Color;
-use bevy::color::palettes::css::SKY_BLUE;
+use bevy::color::palettes::css::{BLACK, SKY_BLUE};
 use bevy::color::palettes::tailwind::GRAY_400;
 use bevy::ecs::component::{Component, ComponentId};
 use bevy::ecs::entity::Entity;
 use bevy::ecs::event::Event;
-use bevy::ecs::observer::{Observer, Trigger};
+use bevy::ecs::observer::Observer;
 use bevy::ecs::query::Changed;
 use bevy::ecs::schedule::IntoSystemConfigs;
-use bevy::ecs::system::Query;
+use bevy::ecs::system::{Query, Resource};
 use bevy::ecs::world::DeferredWorld;
 use bevy::math::{Rect, Vec2};
-use bevy::picking::events::{Click, Pointer};
-use bevy::prelude::ReflectComponent;
+use bevy::prelude::{Deref, DerefMut, ReflectComponent};
 
 use bevy::reflect::{Reflect, std_traits::ReflectDefault};
 use bevy::render::{ExtractSchedule, RenderApp};
@@ -38,6 +37,7 @@ impl Plugin for TextInputPlugin {
         app.add_event::<TextSubmissionEvent>()
             .add_event::<SubmitTextEvent>()
             .init_resource::<TextInputPipeline>()
+            .init_resource::<ActiveTextInput>()
             .add_systems(
                 PostUpdate,
                 (
@@ -67,6 +67,20 @@ impl Plugin for TextInputPlugin {
     }
 }
 
+/// Currently active input
+#[derive(Resource, Default, Deref, DerefMut)]
+pub struct ActiveTextInput(pub Option<Entity>);
+
+impl ActiveTextInput {
+    pub fn set(&mut self, entity: Entity) -> Option<Entity> {
+        self.0.replace(entity)
+    }
+
+    pub fn clear(&mut self) {
+        self.0 = None;
+    }
+}
+
 #[derive(Component, Debug)]
 #[require(
     Node,
@@ -80,19 +94,33 @@ impl Plugin for TextInputPlugin {
     on_add = on_add_textinputnode,
 )]
 pub struct TextInputNode {
+    /// Whether the text should be cleared on submission
+    /// (Shift-Enter or just Enter in single-line mode)
     pub clear_on_submit: bool,
-    pub is_active: bool,
+    /// Type of text input
     pub mode: TextInputMode,
+    /// Maximum number of characters that can entered into the input buffer
     pub max_chars: Option<usize>,
+    /// Should overwrite mode be available
+    pub allow_overwrite_mode: bool,
+    /// Can the text input be activated
+    pub is_enabled: bool,
+    /// Activate on pointer down
+    pub activate_on_pointer_down: bool,
+    /// Deactivate after text submitted
+    pub deactivate_on_submit: bool,
 }
 
 impl Default for TextInputNode {
     fn default() -> Self {
         Self {
             clear_on_submit: true,
-            is_active: true,
             mode: TextInputMode::default(),
             max_chars: None,
+            allow_overwrite_mode: true,
+            is_enabled: true,
+            activate_on_pointer_down: true,
+            deactivate_on_submit: true,
         }
     }
 }
@@ -173,7 +201,6 @@ pub struct TextInputBuffer {
     pub(crate) needs_update: bool,
     pub(crate) prompt_buffer: Option<Buffer>,
     pub(crate) changes: cosmic_undo_2::Commands<Change>,
-    pub(crate) dragging: bool,
 }
 
 impl TextInputBuffer {
@@ -203,7 +230,6 @@ impl Default for TextInputBuffer {
             needs_update: true,
             prompt_buffer: None,
             changes: cosmic_undo_2::Commands::default(),
-            dragging: false,
         }
     }
 }
@@ -222,6 +248,15 @@ pub struct TextInputPrompt {
     /// The color of the prompt's text.
     /// If none, the text input's `TextColor` is used.
     pub color: Option<Color>,
+}
+
+impl TextInputPrompt {
+    pub fn new(text: impl Into<String>) -> Self {
+        Self {
+            text: text.into(),
+            ..Default::default()
+        }
+    }
 }
 
 impl Default for TextInputPrompt {
@@ -244,6 +279,8 @@ pub struct TextInputStyle {
     pub selection_color: Color,
     /// Selected text tint, if unset uses the `TextColor`
     pub selected_text_color: Option<Color>,
+    /// Color of text on the overwrite cursor
+    pub overwrite_text_color: Color,
     /// Width of the cursor
     pub cursor_width: f32,
     /// Corner radius in logical pixels
@@ -260,6 +297,7 @@ impl Default for TextInputStyle {
             cursor_color: GRAY_400.into(),
             selection_color: SKY_BLUE.into(),
             selected_text_color: None,
+            overwrite_text_color: BLACK.into(),
             cursor_width: 3.,
             cursor_radius: 0.,
             cursor_height: 1.,

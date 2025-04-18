@@ -2,7 +2,8 @@
 
 use bevy::{color::palettes::css::NAVY, prelude::*};
 use bevy_ui_text_input::{
-    TextInputContents, TextInputMode, TextInputNode, TextInputPlugin, TextInputPrompt,
+    ActiveTextInput, TextInputContents, TextInputMode, TextInputNode, TextInputPlugin,
+    TextInputPrompt,
 };
 
 fn main() {
@@ -13,23 +14,17 @@ fn main() {
         .run();
 }
 
-fn setup(mut commands: Commands, assets: Res<AssetServer>) {
+fn setup(
+    mut commands: Commands,
+    assets: Res<AssetServer>,
+    mut active_input: ResMut<ActiveTextInput>,
+) {
     // UI camera
     commands.spawn(Camera2d);
-    commands
-        .spawn(Node {
-            width: Val::Percent(100.),
-            height: Val::Percent(100.),
-            justify_content: JustifyContent::Center,
-            align_items: AlignItems::Center,
-            flex_direction: FlexDirection::Column,
-            row_gap: Val::Px(10.),
-            column_gap: Val::Px(20.),
-            ..Default::default()
-        })
-        .with_child((
+
+    let input_entity = commands
+        .spawn((
             TextInputNode {
-                is_active: true,
                 mode: TextInputMode::TextSingleLine,
                 ..Default::default()
             },
@@ -47,6 +42,22 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
             },
             BackgroundColor(NAVY.into()),
         ))
+        .id();
+
+    active_input.set(input_entity);
+
+    commands
+        .spawn(Node {
+            width: Val::Percent(100.),
+            height: Val::Percent(100.),
+            justify_content: JustifyContent::Center,
+            align_items: AlignItems::Center,
+            flex_direction: FlexDirection::Column,
+            row_gap: Val::Px(10.),
+            column_gap: Val::Px(20.),
+            ..Default::default()
+        })
+        .add_child(input_entity)
         .with_child((
             Node {
                 position_type: PositionType::Absolute,

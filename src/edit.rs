@@ -10,19 +10,17 @@ use bevy::ecs::system::ResMut;
 use bevy::input::ButtonState;
 use bevy::input::keyboard::Key;
 use bevy::input::keyboard::KeyboardInput;
+use bevy::log::warn_once;
 use bevy::math::Rect;
-use bevy::picking::events::Click;
 use bevy::picking::events::Down;
 use bevy::picking::events::Drag;
 use bevy::picking::events::Pointer;
-use bevy::picking::events::Up;
 use bevy::picking::pointer::PointerButton;
 use bevy::text::cosmic_text::Action;
 use bevy::text::cosmic_text::BorrowedWithFontSystem;
 use bevy::text::cosmic_text::Change;
 use bevy::text::cosmic_text::Edit;
 use bevy::text::cosmic_text::Editor;
-use bevy::text::cosmic_text::FontSystem;
 use bevy::text::cosmic_text::Motion;
 use bevy::text::cosmic_text::Selection;
 use bevy::time::Time;
@@ -31,6 +29,7 @@ use bevy::ui::ComputedNode;
 use once_cell::sync::Lazy;
 use regex::Regex;
 
+use crate::ActiveTextInput;
 use crate::SubmitTextEvent;
 use crate::TextInputBuffer;
 use crate::TextInputMode;
@@ -140,268 +139,278 @@ pub fn text_input_edit_system(
     mut text_input_pipeline: ResMut<TextInputPipeline>,
     mut submit_reader: EventReader<SubmitTextEvent>,
     mut submit_writer: EventWriter<TextSubmissionEvent>,
+    mut active_text_input: ResMut<ActiveTextInput>,
     time: Res<Time>,
 ) {
+    let Some(entity) = active_text_input.0 else {
+        return;
+    };
+
+    let Ok((entity, input, mut buffer, style)) = query.get_mut(entity) else {
+        warn_once!("The ActiveTextInput {entity} is not a text input.");
+        return;
+    };
+
     let mut clipboard = Clipboard::new();
     let keyboard_events: Vec<_> = keyboard_events_reader.read().collect();
 
     let mut font_system = &mut text_input_pipeline.font_system;
 
-    for (entity, input, mut buffer, style) in query.iter_mut() {
-        if !input.is_active {
-            buffer.cursor_blink_time = f32::MAX;
-            continue;
+    buffer.cursor_blink_time = if keyboard_events.is_empty() {
+        (buffer.cursor_blink_time + time.delta_secs()).rem_euclid(style.blink_interval * 2.)
+    } else {
+        0.
+    };
+
+    let TextInputBuffer {
+        editor,
+        overwrite_mode,
+        changes: commands,
+        ..
+    } = &mut *buffer;
+
+    let mut editor = editor.borrow_with(&mut font_system);
+
+    if editor.with_buffer(|buffer| buffer.wrap() != input.mode.wrap()) {
+        apply_motion(&mut editor, *shift_pressed, Motion::BufferStart);
+        editor.action(Action::Escape);
+
+        editor.with_buffer_mut(|buffer| {
+            buffer.set_wrap(input.mode.wrap());
+        });
+    }
+
+    for event in &keyboard_events {
+        if active_text_input.is_none() {
+            break;
         }
 
-        buffer.cursor_blink_time = if keyboard_events.is_empty() {
-            (buffer.cursor_blink_time + time.delta_secs()).rem_euclid(style.blink_interval * 2.)
-        } else {
-            0.
+        editor.start_change();
+
+        match event.logical_key {
+            Key::Shift => {
+                *shift_pressed = event.state == ButtonState::Pressed;
+                continue;
+            }
+            Key::Control => {
+                *command_pressed = event.state == ButtonState::Pressed;
+                continue;
+            }
+            #[cfg(target_os = "macos")]
+            Key::Super => {
+                *command_pressed = event.state == ButtonState::Pressed;
+                continue;
+            }
+            _ => {}
         };
-
-        let TextInputBuffer {
-            editor,
-            overwrite_mode,
-            changes: commands,
-            ..
-        } = &mut *buffer;
-
-        let mut editor = editor.borrow_with(&mut font_system);
-
-        if editor.with_buffer(|buffer| buffer.wrap() != input.mode.wrap()) {
-            apply_motion(&mut editor, *shift_pressed, Motion::BufferStart);
-            editor.action(Action::Escape);
-
-            editor.with_buffer_mut(|buffer| {
-                buffer.set_wrap(input.mode.wrap());
-            });
-        }
-
-        for event in &keyboard_events {
-            editor.start_change();
-
-            match event.logical_key {
-                Key::Shift => {
-                    *shift_pressed = event.state == ButtonState::Pressed;
-                    continue;
-                }
-                Key::Control => {
-                    *command_pressed = event.state == ButtonState::Pressed;
-                    continue;
-                }
-                #[cfg(target_os = "macos")]
-                Key::Super => {
-                    *command_pressed = event.state == ButtonState::Pressed;
-                    continue;
-                }
-                _ => {}
-            };
-            if event.state.is_pressed() {
-                if *command_pressed {
-                    match &event.logical_key {
-                        Key::Character(str) => {
-                            if let Some(char) = str.chars().next() {
-                                match char {
-                                    'c' => {
-                                        // copy
-                                        if let Ok(ref mut clipboard) = clipboard {
-                                            if let Some(text) = editor.copy_selection() {
-                                                let _ = clipboard.set_text(text);
-                                            }
+        if event.state.is_pressed() {
+            if *command_pressed {
+                match &event.logical_key {
+                    Key::Character(str) => {
+                        if let Some(char) = str.chars().next() {
+                            match char {
+                                'c' => {
+                                    // copy
+                                    if let Ok(ref mut clipboard) = clipboard {
+                                        if let Some(text) = editor.copy_selection() {
+                                            let _ = clipboard.set_text(text);
                                         }
                                     }
-                                    'x' => {
-                                        // cut
-                                        if let Ok(ref mut clipboard) = clipboard {
-                                            if let Some(text) = editor.copy_selection() {
-                                                let _ = clipboard.set_text(text);
-                                            }
+                                }
+                                'x' => {
+                                    // cut
+                                    if let Ok(ref mut clipboard) = clipboard {
+                                        if let Some(text) = editor.copy_selection() {
+                                            let _ = clipboard.set_text(text);
                                         }
-                                        editor.delete_selection();
                                     }
-                                    'v' => {
-                                        // paste
-                                        if let Ok(ref mut clipboard) = clipboard {
-                                            if let Ok(text) = clipboard.get_text() {
-                                                if input.max_chars.is_none_or(|max| {
-                                                    editor.with_buffer(buffer_len) + text.len()
-                                                        <= max
-                                                }) {
-                                                    if filter_text(input.mode, &text) {
-                                                        editor.insert_string(&text, None);
-                                                    }
+                                    editor.delete_selection();
+                                }
+                                'v' => {
+                                    // paste
+                                    if let Ok(ref mut clipboard) = clipboard {
+                                        if let Ok(text) = clipboard.get_text() {
+                                            if input.max_chars.is_none_or(|max| {
+                                                editor.with_buffer(buffer_len) + text.len() <= max
+                                            }) {
+                                                if filter_text(input.mode, &text) {
+                                                    editor.insert_string(&text, None);
                                                 }
                                             }
                                         }
                                     }
-                                    'z' => {
-                                        for action in commands.undo() {
-                                            apply_action(&mut editor, action);
-                                        }
-                                    }
-                                    'y' | 'Z' => {
-                                        for action in commands.redo() {
-                                            apply_action(&mut editor, action);
-                                        }
-                                    }
-                                    'a' => {
-                                        // select all
-                                        editor.action(Action::Motion(Motion::BufferStart));
-                                        let cursor = editor.cursor();
-                                        editor.set_selection(Selection::Normal(cursor));
-                                        editor.action(Action::Motion(Motion::BufferEnd));
-                                    }
-                                    _ => {
-                                        // not recognised, ignore
+                                }
+                                'z' => {
+                                    for action in commands.undo() {
+                                        apply_action(&mut editor, action);
                                     }
                                 }
-                            }
-                        }
-                        Key::ArrowLeft => {
-                            apply_motion(&mut editor, *shift_pressed, Motion::PreviousWord);
-                        }
-                        Key::ArrowRight => {
-                            apply_motion(&mut editor, *shift_pressed, Motion::NextWord);
-                        }
-                        Key::ArrowUp => {
-                            editor.action(Action::Scroll { lines: -1 });
-                        }
-                        Key::ArrowDown => {
-                            editor.action(Action::Scroll { lines: 1 });
-                        }
-                        Key::Home => {
-                            apply_motion(&mut editor, *shift_pressed, Motion::BufferStart);
-                        }
-                        Key::End => {
-                            apply_motion(&mut editor, *shift_pressed, Motion::BufferEnd);
-                        }
-                        _ => {
-                            // not recognised, ignore
-                        }
-                    }
-                } else {
-                    let mut key = event.logical_key.clone();
-                    if event.logical_key == Key::Space {
-                        key = Key::Character(" ".into());
-                    }
-                    match key {
-                        Key::Character(str) => {
-                            if let Some(char) = str
-                                .chars()
-                                .next()
-                                .filter(|ch| filter_char_input(input.mode, *ch))
-                            {
-                                if *overwrite_mode {
-                                    if editor.selection() != Selection::None {
-                                        editor.action(Action::Insert(char));
-                                    } else if !(cursor_at_buffer_end(&mut editor)
-                                        && input.max_chars.is_some_and(|max_chars| {
-                                            max_chars <= editor.with_buffer(buffer_len)
-                                        }))
-                                    {
-                                        editor.action(Action::Delete);
-                                        editor.action(Action::Insert(char));
-                                    }
-                                } else {
-                                    if input.max_chars.is_none_or(|max_chars| {
-                                        editor.with_buffer(buffer_len) < max_chars
-                                    }) {
-                                        editor.action(Action::Insert(char));
-                                        let re = match input.mode {
-                                            TextInputMode::Integer => Some(&INTEGER_RE),
-                                            TextInputMode::Decimal => Some(&DECIMAL_RE),
-                                            _ => None,
-                                        };
-                                        if let Some(re) = re {
-                                            let text = editor.with_buffer(crate::get_text);
-                                            if !re.is_match(&text) {
-                                                editor.action(Action::Backspace);
-                                            }
-                                        }
+                                'y' | 'Z' => {
+                                    for action in commands.redo() {
+                                        apply_action(&mut editor, action);
                                     }
                                 }
-                            }
-                        }
-                        Key::Enter => match (*shift_pressed, input.mode) {
-                            (false, TextInputMode::Text { .. }) => {
-                                editor.action(Action::Enter);
-                            }
-                            _ => {
-                                let text = editor.with_buffer(crate::get_text);
-                                submit_writer.send(TextSubmissionEvent { entity, text });
-
-                                if input.clear_on_submit {
+                                'a' => {
+                                    // select all
                                     editor.action(Action::Motion(Motion::BufferStart));
                                     let cursor = editor.cursor();
                                     editor.set_selection(Selection::Normal(cursor));
                                     editor.action(Action::Motion(Motion::BufferEnd));
-                                    editor.action(Action::Delete);
+                                }
+                                _ => {
+                                    // not recognised, ignore
                                 }
                             }
-                        },
-                        Key::Backspace => {
-                            editor.action(Action::Backspace);
                         }
-                        Key::Delete => {
-                            if *shift_pressed {
-                                // cut
-                                if let Ok(ref mut clipboard) = clipboard {
-                                    if let Some(text) = editor.copy_selection() {
-                                        let _ = clipboard.set_text(text);
+                    }
+                    Key::ArrowLeft => {
+                        apply_motion(&mut editor, *shift_pressed, Motion::PreviousWord);
+                    }
+                    Key::ArrowRight => {
+                        apply_motion(&mut editor, *shift_pressed, Motion::NextWord);
+                    }
+                    Key::ArrowUp => {
+                        editor.action(Action::Scroll { lines: -1 });
+                    }
+                    Key::ArrowDown => {
+                        editor.action(Action::Scroll { lines: 1 });
+                    }
+                    Key::Home => {
+                        apply_motion(&mut editor, *shift_pressed, Motion::BufferStart);
+                    }
+                    Key::End => {
+                        apply_motion(&mut editor, *shift_pressed, Motion::BufferEnd);
+                    }
+                    _ => {
+                        // not recognised, ignore
+                    }
+                }
+            } else {
+                let mut key = event.logical_key.clone();
+                if event.logical_key == Key::Space {
+                    key = Key::Character(" ".into());
+                }
+                match key {
+                    Key::Character(str) => {
+                        if let Some(char) = str
+                            .chars()
+                            .next()
+                            .filter(|ch| filter_char_input(input.mode, *ch))
+                        {
+                            if *overwrite_mode {
+                                if editor.selection() != Selection::None {
+                                    editor.action(Action::Insert(char));
+                                } else if !(cursor_at_buffer_end(&mut editor)
+                                    && input.max_chars.is_some_and(|max_chars| {
+                                        max_chars <= editor.with_buffer(buffer_len)
+                                    }))
+                                {
+                                    editor.action(Action::Delete);
+                                    editor.action(Action::Insert(char));
+                                }
+                            } else {
+                                if input.max_chars.is_none_or(|max_chars| {
+                                    editor.with_buffer(buffer_len) < max_chars
+                                }) {
+                                    editor.action(Action::Insert(char));
+                                    let re = match input.mode {
+                                        TextInputMode::Integer => Some(&INTEGER_RE),
+                                        TextInputMode::Decimal => Some(&DECIMAL_RE),
+                                        _ => None,
+                                    };
+                                    if let Some(re) = re {
+                                        let text = editor.with_buffer(crate::get_text);
+                                        if !re.is_match(&text) {
+                                            editor.action(Action::Backspace);
+                                        }
                                     }
                                 }
-                                editor.delete_selection();
-                            } else {
+                            }
+                        }
+                    }
+                    Key::Enter => match (*shift_pressed, input.mode) {
+                        (false, TextInputMode::Text { .. }) => {
+                            editor.action(Action::Enter);
+                        }
+                        _ => {
+                            let text = editor.with_buffer(crate::get_text);
+                            submit_writer.send(TextSubmissionEvent { entity, text });
+
+                            if input.clear_on_submit {
+                                editor.action(Action::Motion(Motion::BufferStart));
+                                let cursor = editor.cursor();
+                                editor.set_selection(Selection::Normal(cursor));
+                                editor.action(Action::Motion(Motion::BufferEnd));
                                 editor.action(Action::Delete);
                             }
-                        }
-                        Key::PageUp => {
-                            apply_motion(&mut editor, *shift_pressed, Motion::PageUp);
-                        }
-                        Key::PageDown => {
-                            apply_motion(&mut editor, *shift_pressed, Motion::PageDown);
-                        }
-                        Key::ArrowLeft => {
-                            apply_motion(&mut editor, *shift_pressed, Motion::Left);
-                        }
-                        Key::ArrowRight => {
-                            apply_motion(&mut editor, *shift_pressed, Motion::Right);
-                        }
-                        Key::ArrowUp => {
-                            apply_motion(&mut editor, *shift_pressed, Motion::Up);
-                        }
-                        Key::ArrowDown => {
-                            apply_motion(&mut editor, *shift_pressed, Motion::Down);
-                        }
-                        Key::Home => {
-                            apply_motion(&mut editor, *shift_pressed, Motion::Home);
-                        }
-                        Key::End => {
-                            apply_motion(&mut editor, *shift_pressed, Motion::End);
-                        }
-                        Key::Escape => {
-                            editor.action(Action::Escape);
-                        }
-                        Key::Tab => {
-                            if *shift_pressed {
-                                editor.action(Action::Unindent);
-                            } else {
-                                editor.action(Action::Indent);
+
+                            if input.deactivate_on_submit {
+                                active_text_input.clear();
                             }
                         }
-                        Key::Insert => {
-                            *overwrite_mode = !*overwrite_mode;
-                        }
-                        _ => {}
+                    },
+                    Key::Backspace => {
+                        editor.action(Action::Backspace);
                     }
+                    Key::Delete => {
+                        if *shift_pressed {
+                            // cut
+                            if let Ok(ref mut clipboard) = clipboard {
+                                if let Some(text) = editor.copy_selection() {
+                                    let _ = clipboard.set_text(text);
+                                }
+                            }
+                            editor.delete_selection();
+                        } else {
+                            editor.action(Action::Delete);
+                        }
+                    }
+                    Key::PageUp => {
+                        apply_motion(&mut editor, *shift_pressed, Motion::PageUp);
+                    }
+                    Key::PageDown => {
+                        apply_motion(&mut editor, *shift_pressed, Motion::PageDown);
+                    }
+                    Key::ArrowLeft => {
+                        apply_motion(&mut editor, *shift_pressed, Motion::Left);
+                    }
+                    Key::ArrowRight => {
+                        apply_motion(&mut editor, *shift_pressed, Motion::Right);
+                    }
+                    Key::ArrowUp => {
+                        apply_motion(&mut editor, *shift_pressed, Motion::Up);
+                    }
+                    Key::ArrowDown => {
+                        apply_motion(&mut editor, *shift_pressed, Motion::Down);
+                    }
+                    Key::Home => {
+                        apply_motion(&mut editor, *shift_pressed, Motion::Home);
+                    }
+                    Key::End => {
+                        apply_motion(&mut editor, *shift_pressed, Motion::End);
+                    }
+                    Key::Escape => {
+                        editor.action(Action::Escape);
+                    }
+                    Key::Tab => {
+                        if *shift_pressed {
+                            editor.action(Action::Unindent);
+                        } else {
+                            editor.action(Action::Indent);
+                        }
+                    }
+                    Key::Insert => {
+                        *overwrite_mode = !*overwrite_mode;
+                    }
+                    _ => {}
                 }
             }
         }
-        let change = editor.finish_change();
-        if let Some(change) = change {
-            if !change.items.is_empty() {
-                commands.push(change);
-            }
+    }
+    let change = editor.finish_change();
+    if let Some(change) = change {
+        if !change.items.is_empty() {
+            commands.push(change);
         }
     }
 
@@ -428,16 +437,30 @@ pub fn text_input_edit_system(
 
 pub(crate) fn on_drag_text_input(
     trigger: Trigger<Pointer<Drag>>,
-    mut node_query: Query<(&ComputedNode, &GlobalTransform, &mut TextInputBuffer)>,
+    mut node_query: Query<(
+        &ComputedNode,
+        &GlobalTransform,
+        &mut TextInputBuffer,
+        &TextInputNode,
+    )>,
     mut text_input_pipeline: ResMut<TextInputPipeline>,
+    active_input: Res<ActiveTextInput>,
 ) {
     if trigger.button != PointerButton::Primary {
         return;
     }
 
-    let Ok((node, transform, mut buffer)) = node_query.get_mut(trigger.target) else {
+    if !active_input.is_some_and(|active_input| active_input == trigger.target) {
+        return;
+    }
+
+    let Ok((node, transform, mut buffer, input)) = node_query.get_mut(trigger.target) else {
         return;
     };
+
+    if !input.is_enabled {
+        return;
+    }
 
     let rect = Rect::from_center_size(transform.translation().truncate(), node.size());
 
@@ -456,16 +479,30 @@ pub(crate) fn on_drag_text_input(
 
 pub(crate) fn on_down_text_input(
     trigger: Trigger<Pointer<Down>>,
-    mut node_query: Query<(&ComputedNode, &GlobalTransform, &mut TextInputBuffer)>,
+    mut node_query: Query<(
+        &ComputedNode,
+        &GlobalTransform,
+        &mut TextInputBuffer,
+        &TextInputNode,
+    )>,
     mut text_input_pipeline: ResMut<TextInputPipeline>,
+    mut active_input: ResMut<ActiveTextInput>,
 ) {
     if trigger.button != PointerButton::Primary {
         return;
     }
 
-    let Ok((node, transform, mut buffer)) = node_query.get_mut(trigger.target) else {
+    let Ok((node, transform, mut buffer, input)) = node_query.get_mut(trigger.target) else {
         return;
     };
+
+    if !input.is_enabled {
+        return;
+    }
+
+    if !active_input.is_some_and(|active_input| active_input == trigger.target) {
+        active_input.set(trigger.target);
+    }
 
     let rect = Rect::from_center_size(transform.translation().truncate(), node.size());
 

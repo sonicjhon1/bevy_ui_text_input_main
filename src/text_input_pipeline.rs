@@ -11,7 +11,6 @@ use bevy::ecs::system::ResMut;
 use bevy::ecs::system::Resource;
 use bevy::ecs::world::Ref;
 use bevy::image::Image;
-use bevy::log::info;
 use bevy::math::Rect;
 use bevy::math::UVec2;
 use bevy::math::Vec2;
@@ -31,6 +30,7 @@ use bevy::text::cosmic_text::Metrics;
 use bevy::ui::ComputedNode;
 use bevy::utils::HashMap;
 
+use crate::ActiveTextInput;
 use crate::TextInputBuffer;
 use crate::TextInputGlyph;
 use crate::TextInputLayoutInfo;

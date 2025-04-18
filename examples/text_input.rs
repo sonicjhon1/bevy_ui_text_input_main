@@ -63,6 +63,7 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
         .spawn((
             TextInputNode {
                 clear_on_submit: true,
+                deactivate_on_submit: false,
                 ..Default::default()
             },
             TextInputPrompt {

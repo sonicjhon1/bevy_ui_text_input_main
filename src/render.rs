@@ -19,9 +19,7 @@ use bevy::sprite::BorderRect;
 use bevy::sprite::TextureAtlasLayout;
 
 use bevy::text::TextColor;
-use bevy::text::cosmic_text::Cursor;
 use bevy::text::cosmic_text::Edit;
-use bevy::text::cosmic_text::LayoutRun;
 use bevy::transform::components::GlobalTransform;
 use bevy::ui::CalculatedClip;
 use bevy::ui::ComputedNode;
@@ -34,9 +32,11 @@ use bevy::ui::NodeType;
 use bevy::ui::ResolvedBorderRadius;
 use bevy::ui::TargetCamera;
 
+use crate::ActiveTextInput;
 use crate::TextInputBuffer;
 use crate::TextInputGlyph;
 use crate::TextInputLayoutInfo;
+use crate::TextInputNode;
 use crate::TextInputPrompt;
 use crate::TextInputPromptLayoutInfo;
 use crate::TextInputStyle;
@@ -46,6 +46,7 @@ pub fn extract_text_input_nodes(
     mut commands: Commands,
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
     texture_atlases: Extract<Res<Assets<TextureAtlasLayout>>>,
+    active_text_input: Extract<Res<ActiveTextInput>>,
     uinode_query: Extract<
         Query<(
             Entity,
@@ -57,6 +58,7 @@ pub fn extract_text_input_nodes(
             &TextInputLayoutInfo,
             &TextColor,
             &TextInputStyle,
+            &TextInputNode,
             &TextInputBuffer,
         )>,
     >,
@@ -78,6 +80,7 @@ pub fn extract_text_input_nodes(
         text_color,
         style,
         input,
+        input_buffer,
     ) in &uinode_query
     {
         let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera) else {
@@ -99,7 +102,7 @@ pub fn extract_text_input_nodes(
             .map(|selection_color| selection_color.to_linear())
             .unwrap_or(color);
 
-        let sx = input
+        let sx = input_buffer
             .editor
             .with_buffer(|buffer| buffer.scroll().horizontal);
 
@@ -118,13 +121,13 @@ pub fn extract_text_input_nodes(
                 .unwrap_or(node_rect),
         );
 
-        let line_height = input
+        let line_height = input_buffer
             .editor
             .with_buffer(|buffer| buffer.metrics().line_height);
 
-        for (i, rect) in input.selection_rects.iter().enumerate() {
+        for (i, rect) in input_buffer.selection_rects.iter().enumerate() {
             let id = commands.spawn(TemporaryRenderEntity).id();
-            let size = if (1..input.selection_rects.len()).contains(&i) {
+            let size = if (1..input_buffer.selection_rects.len()).contains(&i) {
                 rect.size() + Vec2::Y
             } else {
                 rect.size()
@@ -155,7 +158,75 @@ pub fn extract_text_input_nodes(
             );
         }
 
-        let selection = input.editor.selection_bounds();
+        let cursor_visable = active_text_input.0.is_some_and(|active| active == entity)
+            && input.is_enabled
+            && input_buffer.cursor_blink_time < style.blink_interval
+            && !style.cursor_color.is_fully_transparent();
+
+        let cursor_position = input_buffer
+            .editor
+            .cursor_position()
+            .filter(|_| cursor_visable);
+
+        if let Some((x, y)) = cursor_position.filter(|_| input_buffer.overwrite_mode) {
+            let cursor_height = line_height * style.cursor_height;
+
+            let scale_factor = uinode.inverse_scale_factor().recip();
+            let width = if input_buffer.overwrite_mode {
+                let c = input_buffer.editor.cursor();
+                input_buffer.editor.with_buffer(|buffer| {
+                    if let Some(line) = buffer.lines.get(c.line) {
+                        if let Some(layout_lines) = line.layout_opt() {
+                            for layout_line in layout_lines.iter() {
+                                if let Some(g) = layout_line
+                                    .glyphs
+                                    .iter()
+                                    .find(|glyph| c.index == glyph.start)
+                                {
+                                    return g.w;
+                                }
+                            }
+                        }
+                    }
+                    style.cursor_width * scale_factor
+                })
+            } else {
+                style.cursor_width * scale_factor
+            };
+
+            let x = x as f32 + 0.5 * width;
+            let y = y as f32 + 0.5 * line_height;
+
+            let id = commands.spawn(TemporaryRenderEntity).id();
+
+            extracted_uinodes.uinodes.insert(
+                id,
+                ExtractedUiNode {
+                    stack_index: uinode.stack_index(),
+                    color,
+                    image: AssetId::default(),
+                    clip,
+                    camera_entity: render_camera_entity.id(),
+                    rect: Rect {
+                        min: Vec2::ZERO,
+                        max: Vec2::new(width, cursor_height),
+                    },
+                    item: ExtractedUiItem::Node {
+                        atlas_scaling: None,
+                        flip_x: false,
+                        flip_y: false,
+                        border_radius: ResolvedBorderRadius::ZERO,
+                        border: BorderRect::ZERO,
+                        node_type: NodeType::Rect,
+                        transform: transform * Mat4::from_translation(Vec3::new(x, y, 0.)),
+                    },
+                    main_entity: entity.into(),
+                },
+            );
+        }
+
+        let selection = input_buffer.editor.selection_bounds();
+        let cursor = input_buffer.editor.cursor();
 
         for TextInputGlyph {
             position,
@@ -166,7 +237,7 @@ pub fn extract_text_input_nodes(
             ..
         } in text_layout_info.glyphs.iter()
         {
-            let color_out = if let Some((s0, s1)) = selection {
+            let mut color_out = if let Some((s0, s1)) = selection {
                 if (s0.line < *line_index || (*line_index == s0.line && s0.index <= *byte_index))
                     && (*line_index < s1.line || (*line_index == s1.line && *byte_index < s1.index))
                 {
@@ -177,6 +248,15 @@ pub fn extract_text_input_nodes(
             } else {
                 color
             };
+
+            if input_buffer.overwrite_mode
+                && cursor.line == *line_index
+                && cursor.index == *byte_index
+                && input_buffer.cursor_blink_time < style.blink_interval
+            {
+                color_out = style.overwrite_text_color.to_linear();
+            }
+
             let rect = texture_atlases
                 .get(&atlas_info.texture_atlas)
                 .unwrap()
@@ -207,77 +287,47 @@ pub fn extract_text_input_nodes(
             end += 1;
         }
 
-        if style.blink_interval < input.cursor_blink_time {
-            continue;
-        }
+        if let Some((x, y)) = cursor_position.filter(|_| !input_buffer.overwrite_mode) {
+            let cursor_height = line_height * style.cursor_height;
 
-        if style.cursor_color.is_fully_transparent() {
-            continue;
-        }
+            let x = x as f32;
+            let y = y as f32;
 
-        let cursor_height = line_height * style.cursor_height;
+            let scale_factor = uinode.inverse_scale_factor().recip();
+            let width = style.cursor_width * scale_factor;
 
-        let Some((x, y)) = input.editor.cursor_position() else {
-            continue;
-        };
+            let id = commands.spawn(TemporaryRenderEntity).id();
 
-        let x = x as f32;
-        let y = y as f32;
-
-        let scale_factor = uinode.inverse_scale_factor().recip();
-        let width = if input.overwrite_mode {
-            let c = input.editor.cursor();
-            input.editor.with_buffer(|buffer| {
-                if let Some(line) = buffer.lines.get(c.line) {
-                    if let Some(layout_lines) = line.layout_opt() {
-                        for layout_line in layout_lines.iter() {
-                            if let Some(g) = layout_line
-                                .glyphs
-                                .iter()
-                                .find(|glyph| c.index == glyph.start)
-                            {
-                                return g.w;
-                            }
-                        }
-                    }
-                }
-                style.cursor_width * scale_factor
-            })
-        } else {
-            style.cursor_width * scale_factor
-        };
-
-        let id = commands.spawn(TemporaryRenderEntity).id();
-
-        extracted_uinodes.uinodes.insert(
-            id,
-            ExtractedUiNode {
-                stack_index: uinode.stack_index(),
-                color,
-                image: AssetId::default(),
-                clip,
-                camera_entity: render_camera_entity.id(),
-                rect: Rect {
-                    min: Vec2::ZERO,
-                    max: Vec2::new(width, cursor_height),
+            extracted_uinodes.uinodes.insert(
+                id,
+                ExtractedUiNode {
+                    stack_index: uinode.stack_index(),
+                    color,
+                    image: AssetId::default(),
+                    clip,
+                    camera_entity: render_camera_entity.id(),
+                    rect: Rect {
+                        min: Vec2::ZERO,
+                        max: Vec2::new(width, cursor_height),
+                    },
+                    item: ExtractedUiItem::Node {
+                        atlas_scaling: None,
+                        flip_x: false,
+                        flip_y: false,
+                        border_radius: ResolvedBorderRadius::ZERO,
+                        border: BorderRect::ZERO,
+                        node_type: NodeType::Rect,
+                        transform: transform
+                            * Mat4::from_translation(Vec3::new(
+                                x + 0.5 * width,
+                                y + 0.5 * line_height,
+                                0.,
+                            )),
+                    },
+                    main_entity: entity.into(),
                 },
-                item: ExtractedUiItem::Node {
-                    atlas_scaling: None,
-                    flip_x: false,
-                    flip_y: false,
-                    border_radius: ResolvedBorderRadius::ZERO,
-                    border: BorderRect::ZERO,
-                    node_type: NodeType::Rect,
-                    transform: transform
-                        * Mat4::from_translation(Vec3::new(
-                            x + 0.5 * width,
-                            y + 0.5 * line_height,
-                            0.,
-                        )),
-                },
-                main_entity: entity.into(),
-            },
-        );
+            );
+        }
     }
 }
 

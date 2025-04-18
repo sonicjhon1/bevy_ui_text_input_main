@@ -1,7 +1,9 @@
 //! minimal text input example
 
 use bevy::{color::palettes::css::NAVY, prelude::*};
-use bevy_ui_text_input::{TextInputMode, TextInputNode, TextInputPlugin, TextSubmissionEvent};
+use bevy_ui_text_input::{
+    ActiveTextInput, TextInputMode, TextInputNode, TextInputPlugin, TextSubmissionEvent,
+};
 
 fn main() {
     App::new()
@@ -11,22 +13,13 @@ fn main() {
         .run();
 }
 
-fn setup(mut commands: Commands) {
+fn setup(mut commands: Commands, mut active_input: ResMut<ActiveTextInput>) {
     // UI camera
     commands.spawn(Camera2d);
-    commands
-        .spawn(Node {
-            width: Val::Percent(100.),
-            height: Val::Percent(100.),
-            justify_content: JustifyContent::Center,
-            align_items: AlignItems::Center,
-            flex_direction: FlexDirection::Column,
-            row_gap: Val::Px(10.),
-            ..Default::default()
-        })
-        .with_child((
+
+    let input_entity = commands
+        .spawn((
             TextInputNode {
-                is_active: true,
                 mode: TextInputMode::Decimal,
                 max_chars: Some(10),
                 ..Default::default()
@@ -41,7 +34,22 @@ fn setup(mut commands: Commands) {
                 ..default()
             },
             BackgroundColor(NAVY.into()),
-        ));
+        ))
+        .id();
+
+    active_input.set(input_entity);
+
+    commands
+        .spawn(Node {
+            width: Val::Percent(100.),
+            height: Val::Percent(100.),
+            justify_content: JustifyContent::Center,
+            align_items: AlignItems::Center,
+            flex_direction: FlexDirection::Column,
+            row_gap: Val::Px(10.),
+            ..Default::default()
+        })
+        .add_child(input_entity);
 }
 
 fn reciever(mut events: EventReader<TextSubmissionEvent>) {
