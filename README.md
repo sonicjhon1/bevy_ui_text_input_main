@@ -44,6 +44,7 @@ cargo run --example text_input
 #### Problems + Bugs
 * Overwrite cursor becomes an insert cursor at the end of lines.
 * Scrolling can be glitchy if the line height isn't an exact divisor of the input box.
+* The plugin can't access any existing `FontAtlasSet`s from `bevy_text` and has to create its own atlases for any fonts it uses.
 
 #### Not supported (at least yet)
 * IME
