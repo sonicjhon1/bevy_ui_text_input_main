@@ -140,6 +140,11 @@ pub fn text_input_system(
                 height: Some(node.size().y),
             };
 
+            let line_height = match input.line_height {
+                crate::LineHeight::Px(h) => h,
+                crate::LineHeight::RelativeToFont(r) => r * text_font.font_size,
+            };
+
             let result = editor.editor.with_buffer_mut(|buffer| {
                 let TextInputPipeline {
                     font_system,
@@ -153,7 +158,7 @@ pub fn text_input_system(
                 let face_info =
                     load_font_to_fontdb(&text_font, font_system, map_handle_to_font_id, &fonts);
 
-                let mut metrics = Metrics::new(text_font.font_size, text_font.font_size)
+                let mut metrics = Metrics::new(text_font.font_size, line_height)
                     .scale(node.inverse_scale_factor().recip());
 
                 metrics.font_size = metrics.font_size.max(0.000001);
@@ -336,13 +341,17 @@ pub fn text_input_prompt_system(
         Ref<TextFont>,
         &mut TextInputPromptLayoutInfo,
         &mut TextInputBuffer,
+        Ref<TextInputNode>,
         Ref<TextInputPrompt>,
     )>,
 ) {
-    for (node, text_font, text_input_layout_info, mut editor, prompt) in text_query.iter_mut() {
+    for (node, text_font, text_input_layout_info, mut editor, input, prompt) in
+        text_query.iter_mut()
+    {
         let layout_info = text_input_layout_info.into_inner();
         let y_axis_orientation = YAxisOrientation::TopToBottom;
         if prompt.is_changed()
+            || input.is_changed()
             || editor.prompt_buffer.is_none()
             || layout_info.glyphs.is_empty()
             || text_font.is_changed() && prompt.font.is_none()
@@ -367,7 +376,12 @@ pub fn text_input_prompt_system(
 
             let font = prompt.font.as_ref().unwrap_or(text_font.as_ref());
 
-            let metrics = Metrics::new(font.font_size, font.font_size)
+            let line_height = match input.line_height {
+                crate::LineHeight::Px(h) => h,
+                crate::LineHeight::RelativeToFont(r) => r * font.font_size,
+            };
+
+            let metrics = Metrics::new(font.font_size, line_height)
                 .scale(node.inverse_scale_factor().recip());
 
             if metrics.font_size <= 0. || metrics.line_height <= 0. {

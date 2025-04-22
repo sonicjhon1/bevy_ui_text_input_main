@@ -2,11 +2,10 @@
 
 use bevy::{
     color::palettes::css::{LIGHT_GOLDENROD_YELLOW, MAROON, RED},
-    prelude::*,
+    prelude::*, text::cosmic_text::Align,
 };
 use bevy_ui_text_input::{
-    SubmitTextEvent, TextInputBuffer, TextInputNode, TextInputPlugin, TextInputPrompt,
-    TextInputStyle, TextSubmissionEvent,
+    SubmitTextEvent, TextInputBuffer, TextInputMode, TextInputNode, TextInputPlugin, TextInputPrompt, TextInputStyle, TextSubmissionEvent
 };
 
 fn main() {
@@ -225,41 +224,25 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
                             ..Default::default()
                         })
                         .with_children(|commands| {
-                            commands
-                        .spawn((
-                            Node {
-                                border: UiRect::all(Val::Px(2.)),
-                                padding: UiRect::all(Val::Px(2.)),
-                                ..Default::default()
-                            },
-                            BorderColor(Color::WHITE), Button
-                        ))
-                        .observe(
-                            move |_: Trigger<Pointer<Click>>, mut query: Query<&mut Node>| {
-                                if let Ok(mut node) = query.get_mut(editor) {
-                                    node.width = Val::Px(250.);
-                                }
-                            },
-                        )
-                        .with_child(Text::new("250w"));
-
-                            commands
-                        .spawn((
-                            Node {
-                                border: UiRect::all(Val::Px(2.)),
-                                padding: UiRect::all(Val::Px(2.)),
-                                ..Default::default()
-                            },
-                            BorderColor(Color::WHITE), Button
-                        ))
-                        .observe(
-                            move |_: Trigger<Pointer<Click>>, mut query: Query<&mut Node>| {
-                                if let Ok(mut node) = query.get_mut(editor) {
-                                    node.width = Val::Px(500.);
-                                }
-                            },
-                        )
-                        .with_child(Text::new("500w"));
+                            for w in [250, 500] {
+                                commands
+                                .spawn((
+                                    Node {
+                                        border: UiRect::all(Val::Px(2.)),
+                                        padding: UiRect::all(Val::Px(2.)),
+                                        ..Default::default()
+                                    },
+                                    BorderColor(Color::WHITE), Button
+                                ))
+                                .observe(
+                                    move |_: Trigger<Pointer<Click>>, mut query: Query<&mut Node>| {
+                                        if let Ok(mut node) = query.get_mut(editor) {
+                                            node.width = Val::Px(w as f32);
+                                        }
+                                    },
+                                )
+                                .with_child(Text::new(format!("{w}w")));
+                            }
                         });
 
                     commands
@@ -269,41 +252,95 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
                             ..Default::default()
                         })
                         .with_children(|commands| {
-                            commands
-                        .spawn((
-                            Node {
-                                border: UiRect::all(Val::Px(2.)),
-                                padding: UiRect::all(Val::Px(2.)),
-                                ..Default::default()
-                            },
-                            BorderColor(Color::WHITE), Button
-                        ))
-                        .observe(
-                            move |_: Trigger<Pointer<Click>>, mut query: Query<&mut Node>| {
-                                if let Ok(mut node) = query.get_mut(editor) {
-                                    node.height = Val::Px(250.);
-                                }
-                            },
-                        )
-                        .with_child(Text::new("250h"));
+                            for h in [250, 500] {
+                                commands
+                            .spawn((
+                                Node {
+                                    border: UiRect::all(Val::Px(2.)),
+                                    padding: UiRect::all(Val::Px(2.)),
+                                    ..Default::default()
+                                },
+                                BorderColor(Color::WHITE), Button
+                            ))
+                            .observe(
+                                move |_: Trigger<Pointer<Click>>, mut query: Query<&mut Node>| {
+                                    if let Ok(mut node) = query.get_mut(editor) {
+                                        node.height = Val::Px(h as f32);
+                                    }
+                                },
+                            )
+                            .with_child(Text::new(format!("{h}h")));
+                            }
+                        });
 
+                    commands
+                        .spawn(Node {
+                            flex_direction: FlexDirection::Column,
+                            row_gap: Val::Px(4.),
+                            ..Default::default()
+                        })
+                        .with_children(|commands| {
+                            
+                                commands
+                            .spawn((
+                                Node {
+                                    border: UiRect::all(Val::Px(2.)),
+                                    padding: UiRect::all(Val::Px(2.)),
+                                    ..Default::default()
+                                },
+                                BorderColor(Color::WHITE), Button
+                            ))
+                            .observe(
+                                move |_: Trigger<Pointer<Click>>, mut query: Query<&mut TextInputNode>| {
+                                    if let Ok(mut input) = query.get_mut(editor) {
+                                        let wrap = match input.mode.wrap() {
+                                            bevy::text::cosmic_text::Wrap::None => bevy::text::cosmic_text::Wrap::Glyph,
+                                            bevy::text::cosmic_text::Wrap::Glyph => bevy::text::cosmic_text::Wrap::Word,
+                                            bevy::text::cosmic_text::Wrap::Word => bevy::text::cosmic_text::Wrap::WordOrGlyph,
+                                            bevy::text::cosmic_text::Wrap::WordOrGlyph => bevy::text::cosmic_text::Wrap::None,
+                                        };
+                                        input.mode = TextInputMode::Text { wrap };
+                                    }
+                                },
+                            )
+                            .with_child(Text::new(format!("wrap")));
+                            
+                        });
+
+                        commands
+                        .spawn(Node {
+                            flex_direction: FlexDirection::Column,
+                            row_gap: Val::Px(4.),
+                            ..Default::default()
+                        })
+                        .with_children(|commands| {
+                            
                             commands
-                        .spawn((
-                            Node {
-                                border: UiRect::all(Val::Px(2.)),
-                                padding: UiRect::all(Val::Px(2.)),
-                                ..Default::default()
-                            },
-                            BorderColor(Color::WHITE), Button
-                        ))
-                        .observe(
-                            move |_: Trigger<Pointer<Click>>, mut query: Query<&mut Node>| {
-                                if let Ok(mut node) = query.get_mut(editor) {
-                                    node.height = Val::Px(500.);
-                                }
-                            },
-                        )
-                        .with_child(Text::new("500h"));
+                            .spawn((
+                                Node {
+                                    border: UiRect::all(Val::Px(2.)),
+                                    padding: UiRect::all(Val::Px(2.)),
+                                    ..Default::default()
+                                },
+                                BorderColor(Color::WHITE), Button
+                            ))
+                            .observe(
+                                move |_: Trigger<Pointer<Click>>, mut query: Query<&mut TextInputNode>| {
+                                    if let Ok(mut input) = query.get_mut(editor) {
+                                        input.alignment = match input.alignment {
+                                            Some(align) => match align {
+                                                Align::Left => Some(Align::Right),
+                                                Align::Right => Some(Align::Center),
+                                                Align::Center => Some(Align::Justified),
+                                                Align::Justified => Some(Align::End),
+                                                Align::End => None,
+                                            },
+                                            None => Some(Align::Left),
+                                        }
+                                    }
+                                },
+                            )
+                            .with_child(Text::new(format!("align")));
                         });
                 });
         })
