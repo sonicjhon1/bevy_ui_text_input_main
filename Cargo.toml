@@ -11,7 +11,7 @@ repository = "https://github.com/ickshonpe/bevy_ui_text_input"
 
 
 [dependencies]
-bevy = { version = "0.15", features = ["bevy_asset", "bevy_ui"] }
+bevy = { version = "0.16", features = ["bevy_asset", "bevy_ui"] }
 arboard = "3.5.0"
 sys-locale = "0.3.0"
 regex = "1.11.1"

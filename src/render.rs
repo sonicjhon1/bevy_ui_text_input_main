@@ -1,37 +1,3 @@
-use bevy::asset::AssetId;
-use bevy::asset::Assets;
-use bevy::color::Alpha;
-use bevy::color::LinearRgba;
-use bevy::ecs::entity::Entity;
-use bevy::ecs::system::Commands;
-use bevy::ecs::system::Query;
-use bevy::ecs::system::Res;
-use bevy::ecs::system::ResMut;
-use bevy::math::Mat4;
-use bevy::math::Rect;
-use bevy::math::Vec2;
-use bevy::math::Vec3;
-use bevy::render::Extract;
-use bevy::render::sync_world::RenderEntity;
-use bevy::render::sync_world::TemporaryRenderEntity;
-use bevy::render::view::ViewVisibility;
-use bevy::sprite::BorderRect;
-use bevy::sprite::TextureAtlasLayout;
-
-use bevy::text::TextColor;
-use bevy::text::cosmic_text::Edit;
-use bevy::transform::components::GlobalTransform;
-use bevy::ui::CalculatedClip;
-use bevy::ui::ComputedNode;
-use bevy::ui::DefaultUiCamera;
-use bevy::ui::ExtractedGlyph;
-use bevy::ui::ExtractedUiItem;
-use bevy::ui::ExtractedUiNode;
-use bevy::ui::ExtractedUiNodes;
-use bevy::ui::NodeType;
-use bevy::ui::ResolvedBorderRadius;
-use bevy::ui::TargetCamera;
-
 use crate::ActiveTextInput;
 use crate::TextInputBuffer;
 use crate::TextInputGlyph;
@@ -41,6 +7,37 @@ use crate::TextInputPrompt;
 use crate::TextInputPromptLayoutInfo;
 use crate::TextInputStyle;
 use crate::edit::is_buffer_empty;
+use bevy::asset::AssetId;
+use bevy::asset::Assets;
+use bevy::color::Alpha;
+use bevy::color::LinearRgba;
+use bevy::ecs::entity::Entity;
+use bevy::ecs::system::Commands;
+use bevy::ecs::system::Query;
+use bevy::ecs::system::Res;
+use bevy::ecs::system::ResMut;
+use bevy::image::TextureAtlasLayout;
+use bevy::math::Mat4;
+use bevy::math::Rect;
+use bevy::math::Vec2;
+use bevy::math::Vec3;
+use bevy::render::Extract;
+use bevy::render::sync_world::TemporaryRenderEntity;
+use bevy::render::view::ViewVisibility;
+use bevy::sprite::BorderRect;
+use bevy::text::TextColor;
+use bevy::text::cosmic_text::Edit;
+use bevy::transform::components::GlobalTransform;
+use bevy::ui::CalculatedClip;
+use bevy::ui::ComputedNode;
+use bevy::ui::ComputedNodeTarget;
+use bevy::ui::ExtractedGlyph;
+use bevy::ui::ExtractedUiItem;
+use bevy::ui::ExtractedUiNode;
+use bevy::ui::ExtractedUiNodes;
+use bevy::ui::NodeType;
+use bevy::ui::ResolvedBorderRadius;
+use bevy::ui::UiCameraMap;
 
 pub fn extract_text_input_nodes(
     mut commands: Commands,
@@ -54,7 +51,7 @@ pub fn extract_text_input_nodes(
             &GlobalTransform,
             &ViewVisibility,
             Option<&CalculatedClip>,
-            Option<&TargetCamera>,
+            &ComputedNodeTarget,
             &TextInputLayoutInfo,
             &TextColor,
             &TextInputStyle,
@@ -62,20 +59,20 @@ pub fn extract_text_input_nodes(
             &TextInputBuffer,
         )>,
     >,
-    mapping: Extract<Query<&RenderEntity>>,
-    default_ui_camera: Extract<DefaultUiCamera>,
+    camera_map: Extract<UiCameraMap>,
 ) {
+    let mut camera_mapper = camera_map.get_mapper();
+
     let mut start = extracted_uinodes.glyphs.len();
     let mut end = start + 1;
 
-    let default_ui_camera = default_ui_camera.get();
     for (
         entity,
         uinode,
         global_transform,
         view_visibility,
         clip,
-        camera,
+        target,
         text_layout_info,
         text_color,
         style,
@@ -83,16 +80,12 @@ pub fn extract_text_input_nodes(
         input_buffer,
     ) in &uinode_query
     {
-        let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera) else {
-            continue;
-        };
-
         // Skip if not visible or if size is set to zero (e.g. when a parent is set to `Display::None`)
         if !view_visibility.get() || uinode.is_empty() {
             continue;
         }
 
-        let Ok(&render_camera_entity) = mapping.get(camera_entity) else {
+        let Some(extracted_camera_entity) = camera_mapper.map(target) else {
             continue;
         };
 
@@ -124,36 +117,33 @@ pub fn extract_text_input_nodes(
             .with_buffer(|buffer| buffer.metrics().line_height);
 
         for (i, rect) in input_buffer.selection_rects.iter().enumerate() {
-            let id = commands.spawn(TemporaryRenderEntity).id();
             let size = if (1..input_buffer.selection_rects.len()).contains(&i) {
                 rect.size() + Vec2::Y
             } else {
                 rect.size()
             } + 2. * Vec2::X;
-            extracted_uinodes.uinodes.insert(
-                id,
-                ExtractedUiNode {
-                    stack_index: uinode.stack_index(),
-                    color: LinearRgba::from(style.selection_color),
-                    image: AssetId::default(),
-                    clip,
-                    camera_entity: render_camera_entity.id(),
-                    rect: Rect {
-                        min: Vec2::ZERO,
-                        max: size,
-                    },
-                    item: ExtractedUiItem::Node {
-                        atlas_scaling: None,
-                        flip_x: false,
-                        flip_y: false,
-                        border_radius: ResolvedBorderRadius::ZERO,
-                        border: BorderRect::ZERO,
-                        node_type: NodeType::Rect,
-                        transform: transform * Mat4::from_translation(rect.center().extend(0.)),
-                    },
-                    main_entity: entity.into(),
+            extracted_uinodes.uinodes.push(ExtractedUiNode {
+                stack_index: uinode.stack_index(),
+                color: LinearRgba::from(style.selection_color),
+                image: AssetId::default(),
+                clip,
+                extracted_camera_entity,
+                rect: Rect {
+                    min: Vec2::ZERO,
+                    max: size,
                 },
-            );
+                item: ExtractedUiItem::Node {
+                    atlas_scaling: None,
+                    flip_x: false,
+                    flip_y: false,
+                    border_radius: ResolvedBorderRadius::ZERO,
+                    border: BorderRect::ZERO,
+                    node_type: NodeType::Rect,
+                    transform: transform * Mat4::from_translation(rect.center().extend(0.)),
+                },
+                main_entity: entity.into(),
+                render_entity: commands.spawn(TemporaryRenderEntity).id(),
+            });
         }
 
         let cursor_visable = active_text_input.0.is_some_and(|active| active == entity)
@@ -195,32 +185,28 @@ pub fn extract_text_input_nodes(
             let x = x as f32 + 0.5 * width;
             let y = y as f32 + 0.5 * line_height;
 
-            let id = commands.spawn(TemporaryRenderEntity).id();
-
-            extracted_uinodes.uinodes.insert(
-                id,
-                ExtractedUiNode {
-                    stack_index: uinode.stack_index(),
-                    color,
-                    image: AssetId::default(),
-                    clip,
-                    camera_entity: render_camera_entity.id(),
-                    rect: Rect {
-                        min: Vec2::ZERO,
-                        max: Vec2::new(width, cursor_height),
-                    },
-                    item: ExtractedUiItem::Node {
-                        atlas_scaling: None,
-                        flip_x: false,
-                        flip_y: false,
-                        border_radius: ResolvedBorderRadius::ZERO,
-                        border: BorderRect::ZERO,
-                        node_type: NodeType::Rect,
-                        transform: transform * Mat4::from_translation(Vec3::new(x, y, 0.)),
-                    },
-                    main_entity: entity.into(),
+            extracted_uinodes.uinodes.push(ExtractedUiNode {
+                stack_index: uinode.stack_index(),
+                color,
+                image: AssetId::default(),
+                clip,
+                extracted_camera_entity,
+                rect: Rect {
+                    min: Vec2::ZERO,
+                    max: Vec2::new(width, cursor_height),
                 },
-            );
+                item: ExtractedUiItem::Node {
+                    atlas_scaling: None,
+                    flip_x: false,
+                    flip_y: false,
+                    border_radius: ResolvedBorderRadius::ZERO,
+                    border: BorderRect::ZERO,
+                    node_type: NodeType::Rect,
+                    transform: transform * Mat4::from_translation(Vec3::new(x, y, 0.)),
+                },
+                main_entity: entity.into(),
+                render_entity: commands.spawn(TemporaryRenderEntity).id(),
+            });
         }
 
         let selection = input_buffer.editor.selection_bounds();
@@ -264,22 +250,17 @@ pub fn extract_text_input_nodes(
                 transform: transform * Mat4::from_translation(position.extend(0.)),
                 rect,
             });
-            extracted_uinodes.uinodes.insert(
-                commands.spawn(TemporaryRenderEntity).id(),
-                ExtractedUiNode {
-                    stack_index: uinode.stack_index(),
-                    color: color_out,
-                    image: atlas_info.texture.id(),
-                    clip,
-                    rect,
-                    item: ExtractedUiItem::Glyphs {
-                        range: start..end,
-                        atlas_scaling: Vec2::ONE,
-                    },
-                    main_entity: entity.into(),
-                    camera_entity: render_camera_entity.id(),
-                },
-            );
+            extracted_uinodes.uinodes.push(ExtractedUiNode {
+                stack_index: uinode.stack_index(),
+                color: color_out,
+                image: atlas_info.texture.id(),
+                clip,
+                rect,
+                extracted_camera_entity,
+                item: ExtractedUiItem::Glyphs { range: start..end },
+                main_entity: entity.into(),
+                render_entity: commands.spawn(TemporaryRenderEntity).id(),
+            });
 
             start = end;
             end += 1;
@@ -294,37 +275,33 @@ pub fn extract_text_input_nodes(
             let scale_factor = uinode.inverse_scale_factor().recip();
             let width = style.cursor_width * scale_factor;
 
-            let id = commands.spawn(TemporaryRenderEntity).id();
-
-            extracted_uinodes.uinodes.insert(
-                id,
-                ExtractedUiNode {
-                    stack_index: uinode.stack_index(),
-                    color,
-                    image: AssetId::default(),
-                    clip,
-                    camera_entity: render_camera_entity.id(),
-                    rect: Rect {
-                        min: Vec2::ZERO,
-                        max: Vec2::new(width, cursor_height),
-                    },
-                    item: ExtractedUiItem::Node {
-                        atlas_scaling: None,
-                        flip_x: false,
-                        flip_y: false,
-                        border_radius: ResolvedBorderRadius::ZERO,
-                        border: BorderRect::ZERO,
-                        node_type: NodeType::Rect,
-                        transform: transform
-                            * Mat4::from_translation(Vec3::new(
-                                x + 0.5 * width,
-                                y + 0.5 * line_height,
-                                0.,
-                            )),
-                    },
-                    main_entity: entity.into(),
+            extracted_uinodes.uinodes.push(ExtractedUiNode {
+                stack_index: uinode.stack_index(),
+                color,
+                image: AssetId::default(),
+                clip,
+                extracted_camera_entity,
+                rect: Rect {
+                    min: Vec2::ZERO,
+                    max: Vec2::new(width, cursor_height),
                 },
-            );
+                item: ExtractedUiItem::Node {
+                    atlas_scaling: None,
+                    flip_x: false,
+                    flip_y: false,
+                    border_radius: ResolvedBorderRadius::ZERO,
+                    border: BorderRect::ZERO,
+                    node_type: NodeType::Rect,
+                    transform: transform
+                        * Mat4::from_translation(Vec3::new(
+                            x + 0.5 * width,
+                            y + 0.5 * line_height,
+                            0.,
+                        )),
+                },
+                main_entity: entity.into(),
+                render_entity: commands.spawn(TemporaryRenderEntity).id(),
+            });
         }
     }
 }
@@ -340,27 +317,27 @@ pub fn extract_text_input_prompts(
             &GlobalTransform,
             &ViewVisibility,
             Option<&CalculatedClip>,
-            Option<&TargetCamera>,
+            &ComputedNodeTarget,
             &TextInputPromptLayoutInfo,
             &TextColor,
             &TextInputBuffer,
             &TextInputPrompt,
         )>,
     >,
-    mapping: Extract<Query<&RenderEntity>>,
-    default_ui_camera: Extract<DefaultUiCamera>,
+    camera_map: Extract<UiCameraMap>,
 ) {
+    let mut camera_mapper = camera_map.get_mapper();
+
     let mut start = extracted_uinodes.glyphs.len();
     let mut end = start + 1;
 
-    let default_ui_camera = default_ui_camera.get();
     for (
         entity,
         uinode,
         global_transform,
         view_visibility,
         clip,
-        camera,
+        target,
         text_layout_info,
         text_color,
         input,
@@ -372,7 +349,7 @@ pub fn extract_text_input_prompts(
             continue;
         }
 
-        let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera) else {
+        let Some(extracted_camera_entity) = camera_mapper.map(target) else {
             continue;
         };
 
@@ -380,10 +357,6 @@ pub fn extract_text_input_prompts(
         if !view_visibility.get() || uinode.is_empty() {
             continue;
         }
-
-        let Ok(&render_camera_entity) = mapping.get(camera_entity) else {
-            continue;
-        };
 
         let color = prompt.color.unwrap_or(text_color.0).to_linear();
 
@@ -415,22 +388,17 @@ pub fn extract_text_input_prompts(
                 transform: transform * Mat4::from_translation(position.extend(0.)),
                 rect,
             });
-            extracted_uinodes.uinodes.insert(
-                commands.spawn(TemporaryRenderEntity).id(),
-                ExtractedUiNode {
-                    stack_index: uinode.stack_index(),
-                    color,
-                    image: atlas_info.texture.id(),
-                    clip,
-                    rect,
-                    item: ExtractedUiItem::Glyphs {
-                        range: start..end,
-                        atlas_scaling: Vec2::ONE,
-                    },
-                    main_entity: entity.into(),
-                    camera_entity: render_camera_entity.id(),
-                },
-            );
+            extracted_uinodes.uinodes.push(ExtractedUiNode {
+                stack_index: uinode.stack_index(),
+                color,
+                image: atlas_info.texture.id(),
+                clip,
+                rect,
+                item: ExtractedUiItem::Glyphs { range: start..end },
+                main_entity: entity.into(),
+                render_entity: commands.spawn(TemporaryRenderEntity).id(),
+                extracted_camera_entity,
+            });
 
             start = end;
             end += 1;

@@ -14,10 +14,10 @@ use bevy::input::mouse::MouseScrollUnit;
 use bevy::input::mouse::MouseWheel;
 use bevy::log::warn_once;
 use bevy::math::Rect;
-use bevy::picking::events::Down;
 use bevy::picking::events::Drag;
 use bevy::picking::events::Pointer;
-use bevy::picking::focus::HoverMap;
+use bevy::picking::events::Pressed;
+use bevy::picking::hover::HoverMap;
 use bevy::picking::pointer::PointerButton;
 use bevy::text::cosmic_text::Action;
 use bevy::text::cosmic_text::BorrowedWithFontSystem;
@@ -338,7 +338,7 @@ pub fn text_input_edit_system(
                         }
                         _ => {
                             let text = editor.with_buffer(crate::get_text);
-                            submit_writer.send(TextSubmissionEvent { entity, text });
+                            submit_writer.write(TextSubmissionEvent { entity, text });
 
                             if input.clear_on_submit {
                                 editor.action(Action::Motion(Motion::BufferStart));
@@ -425,7 +425,7 @@ pub fn text_input_edit_system(
             continue;
         };
         let text = editor.editor.with_buffer(crate::get_text);
-        submit_writer.send(TextSubmissionEvent {
+        submit_writer.write(TextSubmissionEvent {
             entity: *entity,
             text,
         });
@@ -486,7 +486,7 @@ pub(crate) fn on_drag_text_input(
 }
 
 pub(crate) fn on_down_text_input(
-    trigger: Trigger<Pointer<Down>>,
+    trigger: Trigger<Pointer<Pressed>>,
     mut node_query: Query<(
         &ComputedNode,
         &GlobalTransform,

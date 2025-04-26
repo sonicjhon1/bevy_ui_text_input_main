@@ -7,17 +7,17 @@ use bevy::asset::AssetEvents;
 use bevy::color::Color;
 use bevy::color::palettes::css::{BLACK, SKY_BLUE};
 use bevy::color::palettes::tailwind::GRAY_400;
-use bevy::ecs::component::{Component, ComponentId};
+use bevy::ecs::component::{Component, HookContext};
 use bevy::ecs::entity::Entity;
 use bevy::ecs::event::Event;
 use bevy::ecs::observer::Observer;
 use bevy::ecs::query::Changed;
-use bevy::ecs::schedule::IntoSystemConfigs;
-use bevy::ecs::system::{Query, Resource};
+use bevy::ecs::resource::Resource;
+use bevy::ecs::schedule::IntoScheduleConfigs;
+use bevy::ecs::system::Query;
 use bevy::ecs::world::DeferredWorld;
 use bevy::math::{Rect, Vec2};
 use bevy::prelude::{Deref, DerefMut, ReflectComponent};
-
 use bevy::reflect::{Reflect, std_traits::ReflectDefault};
 use bevy::render::{ExtractSchedule, RenderApp};
 use bevy::text::TextColor;
@@ -132,12 +132,12 @@ impl Default for TextInputNode {
     }
 }
 
-fn on_add_textinputnode(mut world: DeferredWorld, entity: Entity, _component_id: ComponentId) {
+fn on_add_textinputnode(mut world: DeferredWorld, context: HookContext) {
     for mut observer in [
         Observer::new(on_drag_text_input),
         Observer::new(on_down_text_input),
     ] {
-        observer.watch_entity(entity);
+        observer.watch_entity(context.entity);
         world.commands().spawn(observer);
     }
 }

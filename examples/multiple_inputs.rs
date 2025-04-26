@@ -2,8 +2,8 @@
 
 use bevy::{
     color::palettes::css::{GREY, LIGHT_GOLDENROD_YELLOW},
+    platform::collections::HashMap,
     prelude::*,
-    utils::HashMap,
 };
 use bevy_ui_text_input::{
     ActiveTextInput, TextInputMode, TextInputNode, TextInputPlugin, TextInputPrompt,
