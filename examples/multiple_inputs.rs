@@ -2,12 +2,12 @@
 
 use bevy::{
     color::palettes::css::{GREY, LIGHT_GOLDENROD_YELLOW},
+    input_focus::InputFocus,
     platform::collections::HashMap,
     prelude::*,
 };
 use bevy_ui_text_input::{
-    ActiveTextInput, TextInputMode, TextInputNode, TextInputPlugin, TextInputPrompt,
-    TextSubmissionEvent,
+    TextInputMode, TextInputNode, TextInputPlugin, TextInputPrompt, TextSubmissionEvent,
 };
 
 fn main() {
@@ -70,7 +70,7 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
                                 TextColor(LIGHT_GOLDENROD_YELLOW.into()),
                                 Node {
                                     width: Val::Px(250.),
-                                    height: Val::Px(25.),
+                                    height: Val::Px(30.),
                                     ..default()
                                 },
                                 BackgroundColor(Color::BLACK),
@@ -92,15 +92,15 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
 }
 
 fn update(
-    active_input: Res<ActiveTextInput>,
+    input_focus: Res<InputFocus>,
     mut events: EventReader<TextSubmissionEvent>,
     map: Res<InputMap>,
     mut text_query: Query<&mut Text>,
     mut outline_query: Query<(Entity, &mut Outline)>,
 ) {
-    if active_input.is_changed() {
+    if input_focus.is_changed() {
         for (entity, mut outline) in outline_query.iter_mut() {
-            if active_input.is_some_and(|active| active == entity) {
+            if input_focus.0.is_some_and(|active| active == entity) {
                 outline.color = Color::WHITE;
             } else {
                 outline.color = GREY.into();

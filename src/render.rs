@@ -1,4 +1,3 @@
-use crate::ActiveTextInput;
 use crate::TextInputBuffer;
 use crate::TextInputGlyph;
 use crate::TextInputLayoutInfo;
@@ -17,6 +16,7 @@ use bevy::ecs::system::Query;
 use bevy::ecs::system::Res;
 use bevy::ecs::system::ResMut;
 use bevy::image::TextureAtlasLayout;
+use bevy::input_focus::InputFocus;
 use bevy::math::Mat4;
 use bevy::math::Rect;
 use bevy::math::Vec2;
@@ -43,7 +43,7 @@ pub fn extract_text_input_nodes(
     mut commands: Commands,
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
     texture_atlases: Extract<Res<Assets<TextureAtlasLayout>>>,
-    active_text_input: Extract<Res<ActiveTextInput>>,
+    active_text_input: Extract<Res<InputFocus>>,
     uinode_query: Extract<
         Query<(
             Entity,

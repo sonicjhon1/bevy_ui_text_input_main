@@ -12,12 +12,12 @@ use bevy::ecs::entity::Entity;
 use bevy::ecs::event::Event;
 use bevy::ecs::observer::Observer;
 use bevy::ecs::query::Changed;
-use bevy::ecs::resource::Resource;
 use bevy::ecs::schedule::IntoScheduleConfigs;
 use bevy::ecs::system::Query;
 use bevy::ecs::world::DeferredWorld;
+use bevy::input_focus::InputFocus;
 use bevy::math::{Rect, Vec2};
-use bevy::prelude::{Deref, DerefMut, ReflectComponent};
+use bevy::prelude::ReflectComponent;
 use bevy::reflect::{Reflect, std_traits::ReflectDefault};
 use bevy::render::{ExtractSchedule, RenderApp};
 use bevy::text::TextColor;
@@ -36,8 +36,8 @@ impl Plugin for TextInputPlugin {
     fn build(&self, app: &mut bevy::app::App) {
         app.add_event::<TextSubmissionEvent>()
             .add_event::<SubmitTextEvent>()
+            .init_resource::<InputFocus>()
             .init_resource::<TextInputPipeline>()
-            .init_resource::<ActiveTextInput>()
             .add_systems(
                 PostUpdate,
                 (
@@ -68,20 +68,6 @@ impl Plugin for TextInputPlugin {
     }
 }
 
-/// Currently active input
-#[derive(Resource, Default, Deref, DerefMut)]
-pub struct ActiveTextInput(pub Option<Entity>);
-
-impl ActiveTextInput {
-    pub fn set(&mut self, entity: Entity) -> Option<Entity> {
-        self.0.replace(entity)
-    }
-
-    pub fn clear(&mut self) {
-        self.0 = None;
-    }
-}
-
 #[derive(Component, Debug)]
 #[require(
     Node,
@@ -109,7 +95,7 @@ pub struct TextInputNode {
     /// Activate on pointer down
     pub activate_on_pointer_down: bool,
     /// Deactivate after text submitted
-    pub deactivate_on_submit: bool,
+    pub unfocus_on_submit: bool,
     /// Text alignment
     pub alignment: Option<Align>,
     /// Line height
@@ -125,7 +111,7 @@ impl Default for TextInputNode {
             allow_overwrite_mode: true,
             is_enabled: true,
             activate_on_pointer_down: true,
-            deactivate_on_submit: true,
+            unfocus_on_submit: true,
             alignment: None,
             line_height: LineHeight::RelativeToFont(1.2),
         }

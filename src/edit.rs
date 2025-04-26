@@ -12,7 +12,7 @@ use bevy::input::keyboard::Key;
 use bevy::input::keyboard::KeyboardInput;
 use bevy::input::mouse::MouseScrollUnit;
 use bevy::input::mouse::MouseWheel;
-use bevy::log::warn_once;
+use bevy::input_focus::InputFocus;
 use bevy::math::Rect;
 use bevy::picking::events::Drag;
 use bevy::picking::events::Pointer;
@@ -32,7 +32,6 @@ use bevy::ui::ComputedNode;
 use once_cell::sync::Lazy;
 use regex::Regex;
 
-use crate::ActiveTextInput;
 use crate::SubmitTextEvent;
 use crate::TextInputBuffer;
 use crate::TextInputMode;
@@ -139,15 +138,14 @@ pub fn text_input_edit_system(
     mut text_input_pipeline: ResMut<TextInputPipeline>,
     mut submit_reader: EventReader<SubmitTextEvent>,
     mut submit_writer: EventWriter<TextSubmissionEvent>,
-    mut active_text_input: ResMut<ActiveTextInput>,
+    mut input_focus: ResMut<InputFocus>,
     time: Res<Time>,
 ) {
-    let Some(entity) = active_text_input.0 else {
+    let Some(entity) = input_focus.0 else {
         return;
     };
 
     let Ok((entity, input, mut buffer, style)) = query.get_mut(entity) else {
-        warn_once!("The ActiveTextInput {entity} is not a text input.");
         return;
     };
 
@@ -181,7 +179,7 @@ pub fn text_input_edit_system(
     }
 
     for event in &keyboard_events {
-        if active_text_input.is_none() {
+        if input_focus.0.is_none() {
             break;
         }
 
@@ -348,8 +346,8 @@ pub fn text_input_edit_system(
                                 editor.action(Action::Delete);
                             }
 
-                            if input.deactivate_on_submit {
-                                active_text_input.clear();
+                            if input.unfocus_on_submit {
+                                input_focus.clear();
                             }
                         }
                     },
@@ -450,13 +448,16 @@ pub(crate) fn on_drag_text_input(
         &TextInputNode,
     )>,
     mut text_input_pipeline: ResMut<TextInputPipeline>,
-    active_input: Res<ActiveTextInput>,
+    input_focus: Res<InputFocus>,
 ) {
     if trigger.button != PointerButton::Primary {
         return;
     }
 
-    if !active_input.is_some_and(|active_input| active_input == trigger.target) {
+    if !input_focus
+        .0
+        .is_some_and(|input_focus_entity| input_focus_entity == trigger.target)
+    {
         return;
     }
 
@@ -494,7 +495,7 @@ pub(crate) fn on_down_text_input(
         &TextInputNode,
     )>,
     mut text_input_pipeline: ResMut<TextInputPipeline>,
-    mut active_input: ResMut<ActiveTextInput>,
+    mut input_focus: ResMut<InputFocus>,
 ) {
     if trigger.button != PointerButton::Primary {
         return;
@@ -508,8 +509,11 @@ pub(crate) fn on_down_text_input(
         return;
     }
 
-    if !active_input.is_some_and(|active_input| active_input == trigger.target) {
-        active_input.set(trigger.target);
+    if !input_focus
+        .get()
+        .is_some_and(|active_input| active_input == trigger.target)
+    {
+        input_focus.set(trigger.target);
     }
 
     let rect = Rect::from_center_size(transform.translation().truncate(), node.size());

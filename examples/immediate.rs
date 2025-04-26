@@ -1,9 +1,8 @@
 //! minimal text input example
 
-use bevy::{color::palettes::css::NAVY, prelude::*};
+use bevy::{color::palettes::css::NAVY, input_focus::InputFocus, prelude::*};
 use bevy_ui_text_input::{
-    ActiveTextInput, TextInputContents, TextInputMode, TextInputNode, TextInputPlugin,
-    TextInputPrompt,
+    TextInputContents, TextInputMode, TextInputNode, TextInputPlugin, TextInputPrompt,
 };
 
 fn main() {
@@ -14,11 +13,7 @@ fn main() {
         .run();
 }
 
-fn setup(
-    mut commands: Commands,
-    assets: Res<AssetServer>,
-    mut active_input: ResMut<ActiveTextInput>,
-) {
+fn setup(mut commands: Commands, assets: Res<AssetServer>, mut active_input: ResMut<InputFocus>) {
     // UI camera
     commands.spawn(Camera2d);
 
