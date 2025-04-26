@@ -1,5 +1,9 @@
-use std::sync::Arc;
-
+use crate::TextInputBuffer;
+use crate::TextInputGlyph;
+use crate::TextInputLayoutInfo;
+use crate::TextInputNode;
+use crate::TextInputPrompt;
+use crate::TextInputPromptLayoutInfo;
 use bevy::asset::AssetEvent;
 use bevy::asset::AssetId;
 use bevy::asset::Assets;
@@ -30,13 +34,7 @@ use bevy::text::cosmic_text::Buffer;
 use bevy::text::cosmic_text::Edit;
 use bevy::text::cosmic_text::Metrics;
 use bevy::ui::ComputedNode;
-
-use crate::TextInputBuffer;
-use crate::TextInputGlyph;
-use crate::TextInputLayoutInfo;
-use crate::TextInputNode;
-use crate::TextInputPrompt;
-use crate::TextInputPromptLayoutInfo;
+use std::sync::Arc;
 
 #[derive(Resource)]
 pub struct TextInputPipeline {
