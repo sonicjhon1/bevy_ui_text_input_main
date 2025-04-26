@@ -101,7 +101,7 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
         .with_child(Text::new("Submit"))
         .observe(
             move |_: Trigger<Pointer<Click>>, mut submit_writer: EventWriter<SubmitTextEvent>| {
-                submit_writer.send(SubmitTextEvent { entity: editor });
+                submit_writer.write(SubmitTextEvent { entity: editor });
             },
         )
         .id();
