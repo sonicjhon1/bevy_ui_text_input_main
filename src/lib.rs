@@ -93,13 +93,11 @@ pub struct TextInputNode {
     /// Can the text input be activated
     pub is_enabled: bool,
     /// Activate on pointer down
-    pub activate_on_pointer_down: bool,
+    pub focus_on_pointer_down: bool,
     /// Deactivate after text submitted
     pub unfocus_on_submit: bool,
     /// Text alignment
     pub alignment: Option<Align>,
-    /// Line height
-    pub line_height: LineHeight,
 }
 
 impl Default for TextInputNode {
@@ -110,10 +108,9 @@ impl Default for TextInputNode {
             max_chars: None,
             allow_overwrite_mode: true,
             is_enabled: true,
-            activate_on_pointer_down: true,
+            focus_on_pointer_down: true,
             unfocus_on_submit: true,
             alignment: None,
-            line_height: LineHeight::RelativeToFont(1.2),
         }
     }
 }
@@ -358,16 +355,4 @@ pub fn update_text_input_contents(
             contents.text = text;
         }
     }
-}
-
-/// Specifies the height of each line of text for `Text` and `Text2d`
-///
-/// Default is 1.2x the font size
-#[derive(Debug, Clone, Copy, Reflect)]
-#[reflect(Debug)]
-pub enum LineHeight {
-    /// Set line height to a specific number of pixels
-    Px(f32),
-    /// Set line height to a multiple of the font size
-    RelativeToFont(f32),
 }

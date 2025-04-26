@@ -20,6 +20,7 @@ use bevy::text::Font;
 use bevy::text::FontAtlasSet;
 use bevy::text::FontSmoothing;
 use bevy::text::LineBreak;
+use bevy::text::LineHeight;
 use bevy::text::TextBounds;
 use bevy::text::TextError;
 use bevy::text::TextFont;
@@ -140,9 +141,9 @@ pub fn text_input_system(
                 height: Some(node.size().y),
             };
 
-            let line_height = match input.line_height {
-                crate::LineHeight::Px(h) => h,
-                crate::LineHeight::RelativeToFont(r) => r * text_font.font_size,
+            let line_height = match text_font.line_height {
+                LineHeight::Px(h) => h,
+                LineHeight::RelativeToFont(r) => r * text_font.font_size,
             };
 
             let result = editor.editor.with_buffer_mut(|buffer| {
@@ -376,9 +377,9 @@ pub fn text_input_prompt_system(
 
             let font = prompt.font.as_ref().unwrap_or(text_font.as_ref());
 
-            let line_height = match input.line_height {
-                crate::LineHeight::Px(h) => h,
-                crate::LineHeight::RelativeToFont(r) => r * font.font_size,
+            let line_height = match text_font.line_height {
+                LineHeight::Px(h) => h,
+                LineHeight::RelativeToFont(r) => r * font.font_size,
             };
 
             let metrics = Metrics::new(font.font_size, line_height)
