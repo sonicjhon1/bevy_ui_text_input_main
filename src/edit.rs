@@ -486,7 +486,7 @@ pub(crate) fn on_drag_text_input(
     });
 }
 
-pub(crate) fn on_down_text_input(
+pub(crate) fn on_text_input_pressed(
     trigger: Trigger<Pointer<Pressed>>,
     mut node_query: Query<(
         &ComputedNode,

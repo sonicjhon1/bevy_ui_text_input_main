@@ -24,7 +24,7 @@ use bevy::text::TextColor;
 use bevy::text::cosmic_text::{Align, Buffer, Change, Edit, Editor, Metrics, Wrap};
 use bevy::text::{GlyphAtlasInfo, TextFont};
 use bevy::ui::{Node, RenderUiSystem, UiSystem, extract_text_sections};
-use edit::{mouse_wheel_scroll, on_down_text_input, on_drag_text_input, text_input_edit_system};
+use edit::{mouse_wheel_scroll, on_drag_text_input, on_text_input_pressed, text_input_edit_system};
 use render::{extract_text_input_nodes, extract_text_input_prompts};
 use text_input_pipeline::{
     TextInputPipeline, remove_dropped_font_atlas_sets_from_text_input_pipeline,
@@ -121,7 +121,7 @@ impl Default for TextInputNode {
 fn on_add_textinputnode(mut world: DeferredWorld, context: HookContext) {
     for mut observer in [
         Observer::new(on_drag_text_input),
-        Observer::new(on_down_text_input),
+        Observer::new(on_text_input_pressed),
     ] {
         observer.watch_entity(context.entity);
         world.commands().spawn(observer);
