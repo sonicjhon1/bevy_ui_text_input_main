@@ -23,7 +23,7 @@ use bevy::math::Vec2;
 use bevy::math::Vec3;
 use bevy::render::Extract;
 use bevy::render::sync_world::TemporaryRenderEntity;
-use bevy::render::view::ViewVisibility;
+use bevy::render::view::InheritedVisibility;
 use bevy::sprite::BorderRect;
 use bevy::text::TextColor;
 use bevy::text::cosmic_text::Edit;
@@ -49,7 +49,7 @@ pub fn extract_text_input_nodes(
             Entity,
             &ComputedNode,
             &GlobalTransform,
-            &ViewVisibility,
+            &InheritedVisibility,
             Option<&CalculatedClip>,
             &ComputedNodeTarget,
             &TextInputLayoutInfo,
@@ -70,7 +70,7 @@ pub fn extract_text_input_nodes(
         entity,
         uinode,
         global_transform,
-        view_visibility,
+        inherited_visibility,
         clip,
         target,
         text_layout_info,
@@ -81,7 +81,7 @@ pub fn extract_text_input_nodes(
     ) in &uinode_query
     {
         // Skip if not visible or if size is set to zero (e.g. when a parent is set to `Display::None`)
-        if !view_visibility.get() || uinode.is_empty() {
+        if !inherited_visibility.get() || uinode.is_empty() {
             continue;
         }
 
@@ -315,7 +315,7 @@ pub fn extract_text_input_prompts(
             Entity,
             &ComputedNode,
             &GlobalTransform,
-            &ViewVisibility,
+            &InheritedVisibility,
             Option<&CalculatedClip>,
             &ComputedNodeTarget,
             &TextInputPromptLayoutInfo,
@@ -335,7 +335,7 @@ pub fn extract_text_input_prompts(
         entity,
         uinode,
         global_transform,
-        view_visibility,
+        inherited_visibility,
         clip,
         target,
         text_layout_info,
@@ -349,14 +349,14 @@ pub fn extract_text_input_prompts(
             continue;
         }
 
+        // Skip if not visible or if size is set to zero (e.g. when a parent is set to `Display::None`)
+        if !inherited_visibility.get() || uinode.is_empty() {
+            continue;
+        }
+
         let Some(extracted_camera_entity) = camera_mapper.map(target) else {
             continue;
         };
-
-        // Skip if not visible or if size is set to zero (e.g. when a parent is set to `Display::None`)
-        if !view_visibility.get() || uinode.is_empty() {
-            continue;
-        }
 
         let color = prompt.color.unwrap_or(text_color.0).to_linear();
 
