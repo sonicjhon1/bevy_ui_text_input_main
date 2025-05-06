@@ -324,6 +324,7 @@ pub fn text_input_system(
                 Ok(()) => {
                     layout_info.size.x = layout_info.size.x * node.inverse_scale_factor();
                     layout_info.size.y = layout_info.size.y * node.inverse_scale_factor();
+                    editor.set_redraw(false);
                 }
             }
         }
