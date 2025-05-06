@@ -38,6 +38,7 @@ impl Plugin for TextInputPlugin {
             .add_event::<SubmitTextEvent>()
             .init_resource::<InputFocus>()
             .init_resource::<TextInputPipeline>()
+            .add_systems(bevy::app::Update, text_input_pipeline::debug_system)
             .add_systems(
                 PostUpdate,
                 (

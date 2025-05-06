@@ -4,6 +4,7 @@ use crate::TextInputLayoutInfo;
 use crate::TextInputNode;
 use crate::TextInputPrompt;
 use crate::TextInputPromptLayoutInfo;
+use crate::edit::is_buffer_empty;
 use bevy::asset::AssetEvent;
 use bevy::asset::AssetId;
 use bevy::asset::Assets;
@@ -542,5 +543,15 @@ pub fn remove_dropped_font_atlas_sets_from_text_input_pipeline(
         if let AssetEvent::Removed { id } = event {
             text_input_pipeline.font_atlas_sets.remove(id);
         }
+    }
+}
+
+pub fn debug_system(edit: Query<&TextInputBuffer>) {
+    for e in edit.iter() {
+        bevy::log::info!("empty = {}", e.editor.with_buffer(is_buffer_empty));
+        bevy::log::info!(
+            "lines = {}",
+            e.editor.with_buffer(|buffer| buffer.lines.len())
+        );
     }
 }
