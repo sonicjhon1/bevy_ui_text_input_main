@@ -244,7 +244,7 @@ pub fn text_input_edit_system(
                                         apply_action(&mut editor, action);
                                     }
                                     #[cfg(target_os = "macos")]
-                                    if shift_pressed {
+                                    if *shift_pressed {
                                         for action in commands.redo() {
                                             apply_action(&mut editor, action);
                                         }
