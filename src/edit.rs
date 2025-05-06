@@ -222,7 +222,9 @@ pub fn text_input_edit_system(
                                             let _ = clipboard.set_text(text);
                                         }
                                     }
-                                    editor.delete_selection();
+                                    if editor.delete_selection() {
+                                        editor.set_redraw(true);
+                                    }
                                 }
                                 'v' => {
                                     // paste
@@ -352,7 +354,11 @@ pub fn text_input_edit_system(
                         }
                     },
                     Key::Backspace => {
-                        editor.action(Action::Backspace);
+                        if editor.delete_selection() {
+                            editor.set_redraw(true);
+                        } else {
+                            editor.action(Action::Backspace);
+                        }
                     }
                     Key::Delete => {
                         if *shift_pressed {
@@ -362,7 +368,11 @@ pub fn text_input_edit_system(
                                     let _ = clipboard.set_text(text);
                                 }
                             }
-                            editor.delete_selection();
+                            if editor.delete_selection() {
+                                editor.set_redraw(true);
+                            }
+                        } else if editor.delete_selection() {
+                            editor.set_redraw(true);
                         } else {
                             editor.action(Action::Delete);
                         }
