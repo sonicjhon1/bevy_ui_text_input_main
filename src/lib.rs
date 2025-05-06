@@ -1,6 +1,6 @@
-mod edit;
-mod render;
-mod text_input_pipeline;
+pub mod edit;
+pub mod render;
+pub mod text_input_pipeline;
 
 use bevy::app::{Plugin, PostUpdate};
 use bevy::asset::AssetEvents;
