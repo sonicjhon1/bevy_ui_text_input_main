@@ -248,6 +248,10 @@ pub fn text_input_edit_system(
                                         for action in commands.redo() {
                                             apply_action(&mut editor, action);
                                         }
+                                    } else {
+                                        for action in commands.undo() {
+                                            apply_action(&mut editor, action);
+                                        }
                                     }
                                 }
                                 'y' | 'Y' => {
