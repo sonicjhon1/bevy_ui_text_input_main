@@ -184,7 +184,7 @@ impl TextInputMode {
 #[derive(Component, Debug)]
 pub struct TextInputBuffer {
     set_text: Option<String>,
-    pub(crate) editor: Editor<'static>,
+    pub editor: Editor<'static>,
     pub(crate) selection_rects: Vec<Rect>,
     pub(crate) cursor_blink_time: f32,
     pub(crate) overwrite_mode: bool,
