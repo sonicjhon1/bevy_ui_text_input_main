@@ -203,7 +203,6 @@ pub fn text_input_system(
         } = &mut *editor;
 
         if editor.redraw() {
-            bevy::log::info!("redraw text input");
             layout_info.glyphs.clear();
             selection_rects.clear();
 
