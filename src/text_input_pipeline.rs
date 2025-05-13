@@ -4,7 +4,6 @@ use crate::TextInputLayoutInfo;
 use crate::TextInputNode;
 use crate::TextInputPrompt;
 use crate::TextInputPromptLayoutInfo;
-use crate::edit::is_buffer_empty;
 use bevy::asset::AssetEvent;
 use bevy::asset::AssetId;
 use bevy::asset::Assets;
