@@ -1,4 +1,3 @@
-use arboard::Clipboard;
 use bevy::ecs::entity::Entity;
 use bevy::ecs::event::EventReader;
 use bevy::ecs::event::EventWriter;
@@ -38,6 +37,8 @@ use crate::TextInputMode;
 use crate::TextInputNode;
 use crate::TextInputStyle;
 use crate::TextSubmissionEvent;
+use crate::clipboard::Clipboard;
+use crate::clipboard::ClipboardContents;
 use crate::text_input_pipeline::TextInputPipeline;
 
 static INTEGER_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"^-?$|^-?\d+$").unwrap());
@@ -139,6 +140,7 @@ pub fn text_input_edit_system(
     mut submit_reader: EventReader<SubmitTextEvent>,
     mut submit_writer: EventWriter<TextSubmissionEvent>,
     mut input_focus: ResMut<InputFocus>,
+    mut clipboard: ResMut<Clipboard>,
     time: Res<Time>,
 ) {
     let Some(entity) = input_focus.0 else {
@@ -149,7 +151,6 @@ pub fn text_input_edit_system(
         return;
     };
 
-    let mut clipboard = Clipboard::new();
     let keyboard_events: Vec<_> = keyboard_events_reader.read().collect();
 
     let mut font_system = &mut text_input_pipeline.font_system;
@@ -209,33 +210,30 @@ pub fn text_input_edit_system(
                             match char {
                                 'c' => {
                                     // copy
-                                    if let Ok(ref mut clipboard) = clipboard {
-                                        if let Some(text) = editor.copy_selection() {
-                                            let _ = clipboard.set_text(text);
-                                        }
+                                    if let Some(text) = editor.copy_selection() {
+                                        let _ = clipboard.set_text(text);
                                     }
                                 }
                                 'x' => {
                                     // cut
-                                    if let Ok(ref mut clipboard) = clipboard {
-                                        if let Some(text) = editor.copy_selection() {
-                                            let _ = clipboard.set_text(text);
-                                        }
+                                    if let Some(text) = editor.copy_selection() {
+                                        let _ = clipboard.set_text(text);
                                     }
+
                                     if editor.delete_selection() {
                                         editor.set_redraw(true);
                                     }
                                 }
                                 'v' => {
                                     // paste
-                                    if let Ok(ref mut clipboard) = clipboard {
-                                        if let Ok(text) = clipboard.get_text() {
-                                            if input.max_chars.is_none_or(|max| {
-                                                editor.with_buffer(buffer_len) + text.len() <= max
-                                            }) {
-                                                if filter_text(input.mode, &text) {
-                                                    editor.insert_string(&text, None);
-                                                }
+                                    if let ClipboardContents::Ready(Ok(text)) =
+                                        clipboard.fetch_text()
+                                    {
+                                        if input.max_chars.is_none_or(|max| {
+                                            editor.with_buffer(buffer_len) + text.len() <= max
+                                        }) {
+                                            if filter_text(input.mode, &text) {
+                                                editor.insert_string(&text, None);
                                             }
                                         }
                                     }
@@ -363,11 +361,10 @@ pub fn text_input_edit_system(
                     Key::Delete => {
                         if *shift_pressed {
                             // cut
-                            if let Ok(ref mut clipboard) = clipboard {
-                                if let Some(text) = editor.copy_selection() {
-                                    let _ = clipboard.set_text(text);
-                                }
+                            if let Some(text) = editor.copy_selection() {
+                                let _ = clipboard.set_text(text);
                             }
+
                             if editor.delete_selection() {
                                 editor.set_redraw(true);
                             }
