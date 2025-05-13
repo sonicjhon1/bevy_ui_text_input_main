@@ -40,7 +40,6 @@ impl Plugin for TextInputPlugin {
             .init_resource::<InputFocus>()
             .init_resource::<TextInputPipeline>()
             .init_resource::<clipboard::Clipboard>()
-            .add_systems(bevy::app::Update, text_input_pipeline::debug_system)
             .add_systems(
                 PostUpdate,
                 (

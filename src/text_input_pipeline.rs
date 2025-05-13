@@ -545,13 +545,3 @@ pub fn remove_dropped_font_atlas_sets_from_text_input_pipeline(
         }
     }
 }
-
-pub fn debug_system(edit: Query<&TextInputBuffer>) {
-    for e in edit.iter() {
-        bevy::log::info!("empty = {}", e.editor.with_buffer(is_buffer_empty));
-        bevy::log::info!(
-            "lines = {}",
-            e.editor.with_buffer(|buffer| buffer.lines.len())
-        );
-    }
-}
