@@ -183,13 +183,12 @@ pub fn text_input_system(
                 Ok(())
             });
 
+            editor.needs_update = result.is_err();
             if result.is_err() {
-                editor.needs_update = true;
                 editor.set_text = Some(text);
-                continue;
+            } else {
+                editor.editor.set_redraw(true);
             }
-
-            editor.needs_update = false;
         }
 
         editor
@@ -204,6 +203,7 @@ pub fn text_input_system(
         } = &mut *editor;
 
         if editor.redraw() {
+            bevy::log::info!("redraw text input");
             layout_info.glyphs.clear();
             selection_rects.clear();
 
