@@ -38,6 +38,7 @@ use crate::TextInputNode;
 use crate::TextInputStyle;
 use crate::TextSubmissionEvent;
 use crate::clipboard::Clipboard;
+use crate::clipboard::ClipboardContents;
 use crate::text_input_pipeline::TextInputPipeline;
 
 static INTEGER_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"^-?$|^-?\d+$").unwrap());
@@ -126,6 +127,7 @@ pub(crate) fn is_buffer_empty(buffer: &bevy::text::cosmic_text::Buffer) -> bool 
 }
 
 pub fn text_input_edit_system(
+    mut clipboard_queue: Local<Vec<ClipboardContents>>,
     mut shift_pressed: Local<bool>,
     mut command_pressed: Local<bool>,
     mut keyboard_events_reader: EventReader<KeyboardInput>,
@@ -168,6 +170,23 @@ pub fn text_input_edit_system(
     } = &mut *buffer;
 
     let mut editor = editor.borrow_with(&mut font_system);
+
+    let mut remaining = vec![];
+    for item in (*clipboard_queue).drain(..) {
+        if let Some(Ok(text)) = item.get_or_poll() {
+            if input
+                .max_chars
+                .is_none_or(|max| editor.with_buffer(buffer_len) + text.len() <= max)
+            {
+                if filter_text(input.mode, &text) {
+                    editor.insert_string(&text, None);
+                }
+            }
+        } else {
+            remaining.push(item);
+        }
+    }
+    *clipboard_queue = remaining;
 
     if editor.with_buffer(|buffer| buffer.wrap() != input.mode.wrap()) {
         apply_motion(&mut editor, *shift_pressed, Motion::BufferStart);
@@ -225,7 +244,8 @@ pub fn text_input_edit_system(
                                 }
                                 'v' => {
                                     // paste
-                                    if let Some(Ok(text)) = clipboard.fetch_text().get_or_poll() {
+                                    let contents = clipboard.fetch_text();
+                                    if let Some(Ok(text)) = contents.get_or_poll() {
                                         if input.max_chars.is_none_or(|max| {
                                             editor.with_buffer(buffer_len) + text.len() <= max
                                         }) {
@@ -233,6 +253,8 @@ pub fn text_input_edit_system(
                                                 editor.insert_string(&text, None);
                                             }
                                         }
+                                    } else {
+                                        clipboard_queue.push(contents);
                                     }
                                 }
                                 'z' => {
