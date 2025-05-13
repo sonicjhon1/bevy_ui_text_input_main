@@ -38,7 +38,6 @@ use crate::TextInputNode;
 use crate::TextInputStyle;
 use crate::TextSubmissionEvent;
 use crate::clipboard::Clipboard;
-use crate::clipboard::ClipboardContents;
 use crate::text_input_pipeline::TextInputPipeline;
 
 static INTEGER_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"^-?$|^-?\d+$").unwrap());
@@ -226,9 +225,7 @@ pub fn text_input_edit_system(
                                 }
                                 'v' => {
                                     // paste
-                                    if let ClipboardContents::Ready(Ok(text)) =
-                                        clipboard.fetch_text()
-                                    {
+                                    if let Some(Ok(text)) = clipboard.fetch_text().get_or_poll() {
                                         if input.max_chars.is_none_or(|max| {
                                             editor.with_buffer(buffer_len) + text.len() <= max
                                         }) {
