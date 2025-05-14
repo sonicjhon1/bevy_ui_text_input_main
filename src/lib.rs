@@ -1,7 +1,7 @@
-mod clipboard;
-mod edit;
-mod render;
-mod text_input_pipeline;
+pub mod clipboard;
+pub mod edit;
+pub mod render;
+pub mod text_input_pipeline;
 
 use bevy::app::{Plugin, PostUpdate};
 use bevy::asset::AssetEvents;
@@ -194,7 +194,7 @@ impl TextInputMode {
 #[derive(Component, Debug)]
 pub struct TextInputBuffer {
     set_text: Option<String>,
-    pub(crate) editor: Editor<'static>,
+    pub editor: Editor<'static>,
     pub(crate) selection_rects: Vec<Rect>,
     pub(crate) cursor_blink_time: f32,
     pub(crate) overwrite_mode: bool,
