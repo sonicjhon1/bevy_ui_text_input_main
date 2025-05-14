@@ -183,13 +183,12 @@ pub fn text_input_system(
                 Ok(())
             });
 
+            editor.needs_update = result.is_err();
             if result.is_err() {
-                editor.needs_update = true;
                 editor.set_text = Some(text);
-                continue;
+            } else {
+                editor.editor.set_redraw(true);
             }
-
-            editor.needs_update = false;
         }
 
         editor
@@ -324,6 +323,7 @@ pub fn text_input_system(
                 Ok(()) => {
                     layout_info.size.x = layout_info.size.x * node.inverse_scale_factor();
                     layout_info.size.y = layout_info.size.y * node.inverse_scale_factor();
+                    editor.set_redraw(false);
                 }
             }
         }

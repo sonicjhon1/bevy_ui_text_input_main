@@ -241,15 +241,18 @@ pub fn extract_text_input_nodes(
                 color_out = style.overwrite_text_color.to_linear();
             }
 
-            let rect = texture_atlases
+            let Some(rect) = texture_atlases
                 .get(&atlas_info.texture_atlas)
-                .unwrap()
-                .textures[atlas_info.location.glyph_index]
-                .as_rect();
+                .map(|atlas| atlas.textures[atlas_info.location.glyph_index].as_rect())
+            else {
+                continue;
+            };
+
             extracted_uinodes.glyphs.push(ExtractedGlyph {
                 transform: transform * Mat4::from_translation(position.extend(0.)),
                 rect,
             });
+
             extracted_uinodes.uinodes.push(ExtractedUiNode {
                 stack_index: uinode.stack_index(),
                 color: color_out,

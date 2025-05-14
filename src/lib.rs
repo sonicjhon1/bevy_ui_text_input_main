@@ -1,3 +1,4 @@
+pub mod clipboard;
 pub mod edit;
 pub mod render;
 pub mod text_input_pipeline;
@@ -38,6 +39,7 @@ impl Plugin for TextInputPlugin {
             .add_event::<SubmitTextEvent>()
             .init_resource::<InputFocus>()
             .init_resource::<TextInputPipeline>()
+            .init_resource::<clipboard::Clipboard>()
             .add_systems(
                 PostUpdate,
                 (
@@ -79,6 +81,7 @@ impl Plugin for TextInputPlugin {
 )]
 #[component(
     on_add = on_add_textinputnode,
+    on_remove = on_remove_unfocus,
 )]
 pub struct TextInputNode {
     /// Whether the text should be cleared on submission
@@ -122,6 +125,13 @@ fn on_add_textinputnode(mut world: DeferredWorld, context: HookContext) {
     ] {
         observer.watch_entity(context.entity);
         world.commands().spawn(observer);
+    }
+}
+
+fn on_remove_unfocus(mut world: DeferredWorld, context: HookContext) {
+    let mut input_focus = world.resource_mut::<InputFocus>();
+    if input_focus.0 == Some(context.entity) {
+        input_focus.0 = None;
     }
 }
 

@@ -1,4 +1,3 @@
-use arboard::Clipboard;
 use bevy::ecs::entity::Entity;
 use bevy::ecs::event::EventReader;
 use bevy::ecs::event::EventWriter;
@@ -38,6 +37,8 @@ use crate::TextInputMode;
 use crate::TextInputNode;
 use crate::TextInputStyle;
 use crate::TextSubmissionEvent;
+use crate::clipboard::Clipboard;
+use crate::clipboard::ClipboardContents;
 use crate::text_input_pipeline::TextInputPipeline;
 
 static INTEGER_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"^-?$|^-?\d+$").unwrap());
@@ -126,6 +127,7 @@ pub(crate) fn is_buffer_empty(buffer: &bevy::text::cosmic_text::Buffer) -> bool 
 }
 
 pub fn text_input_edit_system(
+    mut clipboard_queue: Local<Vec<ClipboardContents>>,
     mut shift_pressed: Local<bool>,
     mut command_pressed: Local<bool>,
     mut keyboard_events_reader: EventReader<KeyboardInput>,
@@ -139,6 +141,7 @@ pub fn text_input_edit_system(
     mut submit_reader: EventReader<SubmitTextEvent>,
     mut submit_writer: EventWriter<TextSubmissionEvent>,
     mut input_focus: ResMut<InputFocus>,
+    mut clipboard: ResMut<Clipboard>,
     time: Res<Time>,
 ) {
     let Some(entity) = input_focus.0 else {
@@ -149,7 +152,6 @@ pub fn text_input_edit_system(
         return;
     };
 
-    let mut clipboard = Clipboard::new();
     let keyboard_events: Vec<_> = keyboard_events_reader.read().collect();
 
     let mut font_system = &mut text_input_pipeline.font_system;
@@ -168,6 +170,23 @@ pub fn text_input_edit_system(
     } = &mut *buffer;
 
     let mut editor = editor.borrow_with(&mut font_system);
+
+    let mut remaining = vec![];
+    for item in (*clipboard_queue).drain(..) {
+        if let Some(Ok(text)) = item.get_or_poll() {
+            if input
+                .max_chars
+                .is_none_or(|max| editor.with_buffer(buffer_len) + text.len() <= max)
+            {
+                if filter_text(input.mode, &text) {
+                    editor.insert_string(&text, None);
+                }
+            }
+        } else {
+            remaining.push(item);
+        }
+    }
+    *clipboard_queue = remaining;
 
     if editor.with_buffer(|buffer| buffer.wrap() != input.mode.wrap()) {
         apply_motion(&mut editor, *shift_pressed, Motion::BufferStart);
@@ -206,49 +225,56 @@ pub fn text_input_edit_system(
                 match &event.logical_key {
                     Key::Character(str) => {
                         if let Some(char) = str.chars().next() {
-                            match char {
-                                'c' => {
+                            // Convert to lowercase so that the commands work when capslock is on
+                            match (char.to_ascii_lowercase(), *shift_pressed) {
+                                ('c', false) => {
                                     // copy
-                                    if let Ok(ref mut clipboard) = clipboard {
-                                        if let Some(text) = editor.copy_selection() {
-                                            let _ = clipboard.set_text(text);
-                                        }
+                                    if let Some(text) = editor.copy_selection() {
+                                        let _ = clipboard.set_text(text);
                                     }
                                 }
-                                'x' => {
+                                ('x', false) => {
                                     // cut
-                                    if let Ok(ref mut clipboard) = clipboard {
-                                        if let Some(text) = editor.copy_selection() {
-                                            let _ = clipboard.set_text(text);
-                                        }
+                                    if let Some(text) = editor.copy_selection() {
+                                        let _ = clipboard.set_text(text);
                                     }
-                                    editor.delete_selection();
+
+                                    if editor.delete_selection() {
+                                        editor.set_redraw(true);
+                                    }
                                 }
-                                'v' => {
+                                ('v', false) => {
                                     // paste
-                                    if let Ok(ref mut clipboard) = clipboard {
-                                        if let Ok(text) = clipboard.get_text() {
-                                            if input.max_chars.is_none_or(|max| {
-                                                editor.with_buffer(buffer_len) + text.len() <= max
-                                            }) {
-                                                if filter_text(input.mode, &text) {
-                                                    editor.insert_string(&text, None);
-                                                }
+                                    let contents = clipboard.fetch_text();
+                                    if let Some(Ok(text)) = contents.get_or_poll() {
+                                        if input.max_chars.is_none_or(|max| {
+                                            editor.with_buffer(buffer_len) + text.len() <= max
+                                        }) {
+                                            if filter_text(input.mode, &text) {
+                                                editor.insert_string(&text, None);
                                             }
                                         }
+                                    } else {
+                                        clipboard_queue.push(contents);
                                     }
                                 }
-                                'z' => {
+                                ('z', false) => {
                                     for action in commands.undo() {
                                         apply_action(&mut editor, action);
                                     }
                                 }
-                                'y' | 'Z' => {
+                                #[cfg(target_os = "macos")]
+                                ('z', true) => {
                                     for action in commands.redo() {
                                         apply_action(&mut editor, action);
                                     }
                                 }
-                                'a' => {
+                                ('y', false) => {
+                                    for action in commands.redo() {
+                                        apply_action(&mut editor, action);
+                                    }
+                                }
+                                ('a', false) => {
                                     // select all
                                     editor.action(Action::Motion(Motion::BufferStart));
                                     let cursor = editor.cursor();
@@ -352,17 +378,24 @@ pub fn text_input_edit_system(
                         }
                     },
                     Key::Backspace => {
-                        editor.action(Action::Backspace);
+                        if editor.delete_selection() {
+                            editor.set_redraw(true);
+                        } else {
+                            editor.action(Action::Backspace);
+                        }
                     }
                     Key::Delete => {
                         if *shift_pressed {
                             // cut
-                            if let Ok(ref mut clipboard) = clipboard {
-                                if let Some(text) = editor.copy_selection() {
-                                    let _ = clipboard.set_text(text);
-                                }
+                            if let Some(text) = editor.copy_selection() {
+                                let _ = clipboard.set_text(text);
                             }
-                            editor.delete_selection();
+
+                            if editor.delete_selection() {
+                                editor.set_redraw(true);
+                            }
+                        } else if editor.delete_selection() {
+                            editor.set_redraw(true);
                         } else {
                             editor.action(Action::Delete);
                         }
