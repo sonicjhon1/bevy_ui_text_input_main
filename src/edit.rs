@@ -448,6 +448,7 @@ pub fn text_input_edit_system(
         if let Some(change) = change {
             if !change.items.is_empty() {
                 changes.push(change);
+                editor.set_redraw(true);
             }
         }
     }
