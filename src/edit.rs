@@ -110,15 +110,14 @@ fn buffer_len(buffer: &bevy::text::cosmic_text::Buffer) -> usize {
         .sum()
 }
 
-fn cursor_at_buffer_end(editor: &mut BorrowedWithFontSystem<Editor<'_>>) -> bool {
+fn cursor_at_line_end(editor: &mut BorrowedWithFontSystem<Editor<'_>>) -> bool {
     let cursor = editor.cursor();
     editor.with_buffer(|buffer| {
-        cursor.line == buffer.lines.len() - 1
-            && buffer
-                .lines
-                .get(cursor.line)
-                .map(|line| cursor.index == line.text().len())
-                .unwrap_or(false)
+        buffer
+            .lines
+            .get(cursor.line)
+            .map(|line| cursor.index == line.text().len())
+            .unwrap_or(false)
     })
 }
 
@@ -325,32 +324,25 @@ pub fn text_input_edit_system(
                             .next()
                             .filter(|ch| filter_char_input(input.mode, *ch))
                         {
-                            if *overwrite_mode {
-                                if editor.selection() != Selection::None {
-                                    editor.action(Action::Insert(char));
-                                } else if !(cursor_at_buffer_end(&mut editor)
-                                    && input.max_chars.is_some_and(|max_chars| {
-                                        max_chars <= editor.with_buffer(buffer_len)
-                                    }))
-                                {
-                                    editor.action(Action::Delete);
-                                    editor.action(Action::Insert(char));
-                                }
-                            } else {
-                                if input.max_chars.is_none_or(|max_chars| {
-                                    editor.with_buffer(buffer_len) < max_chars
-                                }) {
-                                    editor.action(Action::Insert(char));
-                                    let re = match input.mode {
-                                        TextInputMode::Integer => Some(&INTEGER_RE),
-                                        TextInputMode::Decimal => Some(&DECIMAL_RE),
-                                        _ => None,
-                                    };
-                                    if let Some(re) = re {
-                                        let text = editor.with_buffer(crate::get_text);
-                                        if !re.is_match(&text) {
-                                            editor.action(Action::Backspace);
-                                        }
+                            if editor.selection() != Selection::None {
+                                editor.action(Action::Insert(char));
+                            } else if *overwrite_mode && !cursor_at_line_end(&mut editor) {
+                                editor.action(Action::Delete);
+                                editor.action(Action::Insert(char));
+                            } else if input
+                                .max_chars
+                                .is_none_or(|max_chars| editor.with_buffer(buffer_len) < max_chars)
+                            {
+                                editor.action(Action::Insert(char));
+                                let re = match input.mode {
+                                    TextInputMode::Integer => Some(&INTEGER_RE),
+                                    TextInputMode::Decimal => Some(&DECIMAL_RE),
+                                    _ => None,
+                                };
+                                if let Some(re) = re {
+                                    let text = editor.with_buffer(crate::get_text);
+                                    if !re.is_match(&text) {
+                                        editor.action(Action::Backspace);
                                     }
                                 }
                             }
