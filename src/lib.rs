@@ -279,8 +279,6 @@ pub struct TextInputStyle {
     pub selection_color: Color,
     /// Selected text tint, if unset uses the `TextColor`
     pub selected_text_color: Option<Color>,
-    /// Color of text on the overwrite cursor
-    pub overwrite_text_color: Color,
     /// Width of the cursor
     pub cursor_width: f32,
     /// Corner radius in logical pixels
@@ -297,7 +295,6 @@ impl Default for TextInputStyle {
             cursor_color: GRAY_400.into(),
             selection_color: SKY_BLUE.into(),
             selected_text_color: None,
-            overwrite_text_color: BLACK.into(),
             cursor_width: 3.,
             cursor_radius: 0.,
             cursor_height: 1.,

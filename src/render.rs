@@ -156,61 +156,7 @@ pub fn extract_text_input_nodes(
             .cursor_position()
             .filter(|_| cursor_visable);
 
-        if let Some((x, y)) = cursor_position.filter(|_| input_buffer.overwrite_mode) {
-            let cursor_height = line_height * style.cursor_height;
-
-            let scale_factor = uinode.inverse_scale_factor().recip();
-            let width = if input_buffer.overwrite_mode {
-                let c = input_buffer.editor.cursor();
-                input_buffer.editor.with_buffer(|buffer| {
-                    if let Some(line) = buffer.lines.get(c.line) {
-                        if let Some(layout_lines) = line.layout_opt() {
-                            for layout_line in layout_lines.iter() {
-                                if let Some(g) = layout_line
-                                    .glyphs
-                                    .iter()
-                                    .find(|glyph| c.index == glyph.start)
-                                {
-                                    return g.w;
-                                }
-                            }
-                        }
-                    }
-                    style.cursor_width * scale_factor
-                })
-            } else {
-                style.cursor_width * scale_factor
-            };
-
-            let x = x as f32 + 0.5 * width;
-            let y = y as f32 + 0.5 * line_height;
-
-            extracted_uinodes.uinodes.push(ExtractedUiNode {
-                stack_index: uinode.stack_index(),
-                color,
-                image: AssetId::default(),
-                clip,
-                extracted_camera_entity,
-                rect: Rect {
-                    min: Vec2::ZERO,
-                    max: Vec2::new(width, cursor_height),
-                },
-                item: ExtractedUiItem::Node {
-                    atlas_scaling: None,
-                    flip_x: false,
-                    flip_y: false,
-                    border_radius: ResolvedBorderRadius::ZERO,
-                    border: BorderRect::ZERO,
-                    node_type: NodeType::Rect,
-                    transform: transform * Mat4::from_translation(Vec3::new(x, y, 0.)),
-                },
-                main_entity: entity.into(),
-                render_entity: commands.spawn(TemporaryRenderEntity).id(),
-            });
-        }
-
         let selection = input_buffer.editor.selection_bounds();
-        let cursor = input_buffer.editor.cursor();
 
         for TextInputGlyph {
             position,
@@ -221,7 +167,7 @@ pub fn extract_text_input_nodes(
             ..
         } in text_layout_info.glyphs.iter()
         {
-            let mut color_out = if let Some((s0, s1)) = selection {
+            let color_out = if let Some((s0, s1)) = selection {
                 if (s0.line < *line_index || (*line_index == s0.line && s0.index <= *byte_index))
                     && (*line_index < s1.line || (*line_index == s1.line && *byte_index < s1.index))
                 {
@@ -232,14 +178,6 @@ pub fn extract_text_input_nodes(
             } else {
                 color
             };
-
-            if input_buffer.overwrite_mode
-                && cursor.line == *line_index
-                && cursor.index == *byte_index
-                && input_buffer.cursor_blink_time < style.blink_interval
-            {
-                color_out = style.overwrite_text_color.to_linear();
-            }
 
             let Some(rect) = texture_atlases
                 .get(&atlas_info.texture_atlas)
@@ -269,7 +207,7 @@ pub fn extract_text_input_nodes(
             end += 1;
         }
 
-        if let Some((x, y)) = cursor_position.filter(|_| !input_buffer.overwrite_mode) {
+        if let Some((x, y)) = cursor_position {
             let cursor_height = line_height * style.cursor_height;
 
             let x = x as f32;
