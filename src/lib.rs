@@ -6,7 +6,7 @@ pub mod text_input_pipeline;
 use bevy::app::{Plugin, PostUpdate};
 use bevy::asset::AssetEvents;
 use bevy::color::Color;
-use bevy::color::palettes::css::{BLACK, SKY_BLUE};
+use bevy::color::palettes::css::SKY_BLUE;
 use bevy::color::palettes::tailwind::GRAY_400;
 use bevy::ecs::component::{Component, HookContext};
 use bevy::ecs::entity::Entity;
