@@ -42,7 +42,6 @@ cargo run --example text_input
 * Max characters limit
 
 #### Problems + Bugs
-* Overwrite cursor becomes an insert cursor at the end of lines.
 * Scrolling can be glitchy if the line height isn't an exact divisor of the input box.
 * The plugin can't access any existing `FontAtlasSet`s from `bevy_text` and has to create its own atlases for any fonts it uses.
 
@@ -54,3 +53,4 @@ cargo run --example text_input
 * World UI
 * Text2d
 * Onscreen keyboard
+* Clipboard on android
