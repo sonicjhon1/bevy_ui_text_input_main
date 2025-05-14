@@ -165,7 +165,7 @@ pub fn text_input_edit_system(
     let TextInputBuffer {
         editor,
         overwrite_mode,
-        changes: commands,
+        changes,
         ..
     } = &mut *buffer;
 
@@ -225,7 +225,7 @@ pub fn text_input_edit_system(
                 match &event.logical_key {
                     Key::Character(str) => {
                         if let Some(char) = str.chars().next() {
-                            // Convert to lowercase so that the commands work when capslock is on
+                            // onvert to lowercase so that the commands work when capslock is on
                             match (char.to_ascii_lowercase(), *shift_pressed) {
                                 ('c', false) => {
                                     // copy
@@ -259,18 +259,18 @@ pub fn text_input_edit_system(
                                     }
                                 }
                                 ('z', false) => {
-                                    for action in commands.undo() {
+                                    for action in changes.undo() {
                                         apply_action(&mut editor, action);
                                     }
                                 }
                                 #[cfg(target_os = "macos")]
                                 ('z', true) => {
-                                    for action in commands.redo() {
+                                    for action in changes.redo() {
                                         apply_action(&mut editor, action);
                                     }
                                 }
                                 ('y', false) => {
-                                    for action in commands.redo() {
+                                    for action in changes.redo() {
                                         apply_action(&mut editor, action);
                                     }
                                 }
@@ -443,11 +443,12 @@ pub fn text_input_edit_system(
                 }
             }
         }
-    }
-    let change = editor.finish_change();
-    if let Some(change) = change {
-        if !change.items.is_empty() {
-            commands.push(change);
+
+        let change = editor.finish_change();
+        if let Some(change) = change {
+            if !change.items.is_empty() {
+                changes.push(change);
+            }
         }
     }
 
