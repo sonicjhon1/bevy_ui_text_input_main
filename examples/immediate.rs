@@ -32,7 +32,7 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>, mut active_input: Res
             TextInputContents::default(),
             Node {
                 width: Val::Px(250.),
-                height: Val::Px(25.),
+                height: Val::Px(30.),
                 ..default()
             },
             BackgroundColor(NAVY.into()),
