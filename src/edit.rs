@@ -623,12 +623,12 @@ pub fn clear_selection_on_focus_change(
     }
 }
 
-const MULTI_CLICK_TIMER: f32 = 0.5; // seconds
+const MULTI_CLICK_PERIOD: f32 = 0.5; // seconds
 
 #[derive(Component)]
 pub struct MultiClickData {
     last_click_time: f32,
-    times: usize,
+    click_count: usize,
 }
 
 pub fn on_multi_click_set_selection(
@@ -656,14 +656,16 @@ pub fn on_multi_click_set_selection(
 
     let now = time.elapsed_secs();
     if let Ok(mut multi_click_data) = multi_click_datas.get_mut(entity) {
-        if now - multi_click_data.last_click_time <= MULTI_CLICK_TIMER {
+        if now - multi_click_data.last_click_time
+            <= MULTI_CLICK_PERIOD * multi_click_data.click_count as f32
+        {
             if let Ok(mut buffer) = buffers.get_mut(entity) {
                 let mut editor = buffer
                     .editor
                     .borrow_with(&mut text_input_pipeline.font_system);
-                match multi_click_data.times {
+                match multi_click_data.click_count {
                     1 => {
-                        multi_click_data.times += 1;
+                        multi_click_data.click_count += 1;
                         multi_click_data.last_click_time = now;
                         editor.action(Action::Motion(Motion::LeftWord));
                         let cursor = editor.cursor();
@@ -689,7 +691,7 @@ pub fn on_multi_click_set_selection(
     if let Ok(mut entity) = commands.get_entity(entity) {
         entity.try_insert(MultiClickData {
             last_click_time: now,
-            times: 1,
+            click_count: 1,
         });
     }
 }
