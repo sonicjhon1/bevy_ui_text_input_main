@@ -21,7 +21,7 @@ commands
 ```
 
 The size has to be set using `Node`, there isn't any support for responsive sizing yet.
-The active text input is set using the `ActiveTextInput` resource. Inputs can also be set to activate on clicks.
+The active text input is set using the `InputFocus` resource. Inputs can also be set to activate on clicks.
 
 There are a couple of examples, `text_input` is the most complete:
 ```
