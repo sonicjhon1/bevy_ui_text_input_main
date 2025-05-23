@@ -40,6 +40,7 @@ cargo run --example text_input
 * Keyboard navigation supports page up & down, home & End, next & previous word, buffer start & end and scroll up & down
 * Mouse wheel scrolling
 * Max characters limit
+* Double-click and triple-click to select words and paragraphs respectively
 
 #### Problems + Bugs
 * Scrolling can be glitchy if the line height isn't an exact divisor of the input box.
