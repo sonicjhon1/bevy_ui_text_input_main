@@ -38,7 +38,7 @@ use crate::TextInputNode;
 use crate::TextInputStyle;
 use crate::TextSubmissionEvent;
 use crate::clipboard::Clipboard;
-use crate::clipboard::ClipboardContents;
+use crate::clipboard::ClipboardRead;
 use crate::text_input_pipeline::TextInputPipeline;
 
 static INTEGER_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"^-?$|^-?\d+$").unwrap());
@@ -126,7 +126,7 @@ pub(crate) fn is_buffer_empty(buffer: &bevy::text::cosmic_text::Buffer) -> bool 
 }
 
 pub fn text_input_edit_system(
-    mut clipboard_queue: Local<Vec<ClipboardContents>>,
+    mut clipboard_queue: Local<Vec<ClipboardRead>>,
     mut shift_pressed: Local<bool>,
     mut command_pressed: Local<bool>,
     mut keyboard_events_reader: EventReader<KeyboardInput>,
@@ -171,8 +171,8 @@ pub fn text_input_edit_system(
     let mut editor = editor.borrow_with(&mut font_system);
 
     let mut remaining = vec![];
-    for item in (*clipboard_queue).drain(..) {
-        if let Some(Ok(text)) = item.get_or_poll() {
+    for mut item in (*clipboard_queue).drain(..) {
+        if let Some(Ok(text)) = item.poll_result() {
             if input
                 .max_chars
                 .is_none_or(|max| editor.with_buffer(buffer_len) + text.len() <= max)
@@ -244,8 +244,8 @@ pub fn text_input_edit_system(
                                 }
                                 ('v', false) => {
                                     // paste
-                                    let contents = clipboard.fetch_text();
-                                    if let Some(Ok(text)) = contents.get_or_poll() {
+                                    let mut contents = clipboard.fetch_text();
+                                    if let Some(Ok(text)) = contents.poll_result() {
                                         if input.max_chars.is_none_or(|max| {
                                             editor.with_buffer(buffer_len) + text.len() <= max
                                         }) {
