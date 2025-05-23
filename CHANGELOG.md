@@ -2,6 +2,7 @@
 
 ### 0.4.0
 * Improved performance. Text input layouts should only be regenerated after edits now. 
+* The `ActiveTextInput` resource is removed. Use `InputFocus` to set the active text input.
 * Fixed command binds so that they work when capslock is on.
 * `TextInputNode`s are unfocused when despawned.
 * Selections are cleared when a `TextInputNode` is unfocused.
