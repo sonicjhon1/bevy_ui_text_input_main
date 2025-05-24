@@ -16,10 +16,12 @@ use crate::edit::apply_motion;
 use crate::edit::buffer_len;
 use crate::edit::cursor_at_line_end;
 
+#[derive(Debug)]
 pub enum TextInputAction {
     Submit,
+    Cut,
     Copy,
-    Paste(ClipboardRead),
+    Paste,
     Edit(TextInputEdit),
     SwitchInsertMode,
 }
@@ -76,14 +78,14 @@ pub enum TextInputEdit {
 }
 
 #[derive(Resource, Debug, Default)]
-pub struct TextInputActionsQueue(VecDeque<(Entity, TextInputEdit)>);
+pub struct TextInputActionsQueue(VecDeque<(Entity, TextInputAction)>);
 
 impl TextInputActionsQueue {
-    pub fn push(&mut self, entity: Entity, action: TextInputEdit) {
+    pub fn push(&mut self, entity: Entity, action: TextInputAction) {
         self.0.push_back((entity, action));
     }
 
-    pub fn pop(&mut self) -> Option<(Entity, TextInputEdit)> {
+    pub fn pop(&mut self) -> Option<(Entity, TextInputAction)> {
         self.0.pop_front()
     }
 }
