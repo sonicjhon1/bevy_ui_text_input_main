@@ -9,11 +9,20 @@ use bevy::text::cosmic_text::Selection;
 use std::collections::VecDeque;
 
 use crate::TextInputFilter;
+use crate::TextInputMode;
 use crate::clipboard::ClipboardRead;
 use crate::edit::apply_action;
 use crate::edit::apply_motion;
 use crate::edit::buffer_len;
 use crate::edit::cursor_at_line_end;
+
+pub enum TextInputAction {
+    Submit,
+    Copy,
+    Paste(ClipboardRead),
+    Edit(TextInputEdit),
+    SwitchInsertMode,
+}
 
 /// An action to perform on a [`TextInputEditor`]
 #[derive(Debug)]
@@ -66,13 +75,6 @@ pub enum TextInputEdit {
     ScrollDown,
 }
 
-pub enum TextInputAction {
-    Submit,
-    Copy,
-    Paste(ClipboardRead),
-    Edit(TextInputEdit),
-}
-
 #[derive(Resource, Debug, Default)]
 pub struct TextInputActionsQueue(VecDeque<(Entity, TextInputEdit)>);
 
@@ -86,7 +88,7 @@ impl TextInputActionsQueue {
     }
 }
 
-pub fn apply_edit(
+pub fn apply_text_input_edit(
     edit: TextInputEdit,
     editor: &mut BorrowedWithFontSystem<'_, Editor<'static>>,
     changes: &mut cosmic_undo_2::Commands<bevy::text::cosmic_text::Change>,

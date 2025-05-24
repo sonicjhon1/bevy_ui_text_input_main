@@ -32,6 +32,7 @@ use bevy::text::cosmic_text::Selection;
 use bevy::time::Time;
 use bevy::transform::components::GlobalTransform;
 use bevy::ui::ComputedNode;
+use bevy::ui::widget::Text;
 
 use crate::SubmitTextEvent;
 use crate::TextInputBuffer;
@@ -39,6 +40,8 @@ use crate::TextInputMode;
 use crate::TextInputNode;
 use crate::TextInputStyle;
 use crate::TextSubmissionEvent;
+use crate::actions::TextInputAction;
+use crate::actions::TextInputActionsQueue;
 use crate::clipboard::Clipboard;
 use crate::clipboard::ClipboardRead;
 use crate::text_input_pipeline::TextInputPipeline;
@@ -99,6 +102,7 @@ pub(crate) fn is_buffer_empty(buffer: &bevy::text::cosmic_text::Buffer) -> bool 
 }
 
 pub fn text_input_edit_system(
+    mut actions_queue: ResMut<TextInputActionsQueue>,
     mut clipboard_queue: Local<Vec<ClipboardRead>>,
     mut shift_pressed: Local<bool>,
     mut command_pressed: Local<bool>,
@@ -445,6 +449,7 @@ pub(crate) fn on_drag_text_input(
     )>,
     mut text_input_pipeline: ResMut<TextInputPipeline>,
     input_focus: Res<InputFocus>,
+    mut actions_queue: ResMut<TextInputActionsQueue>,
 ) {
     if trigger.button != PointerButton::Primary {
         return;
@@ -492,6 +497,7 @@ pub(crate) fn on_text_input_pressed(
     )>,
     mut text_input_pipeline: ResMut<TextInputPipeline>,
     mut input_focus: ResMut<InputFocus>,
+    mut actions_queue: ResMut<TextInputActionsQueue>,
 ) {
     if trigger.button != PointerButton::Primary {
         return;
@@ -535,6 +541,7 @@ pub fn mouse_wheel_scroll(
     hover_map: Res<HoverMap>,
     mut node_query: Query<(&mut TextInputBuffer, &TextInputNode)>,
     mut text_input_pipeline: ResMut<TextInputPipeline>,
+    mut actions_queue: ResMut<TextInputActionsQueue>,
 ) {
     for mouse_wheel_event in mouse_wheel_events.read() {
         for (_, pointer_map) in hover_map.iter() {
@@ -575,6 +582,7 @@ pub fn clear_selection_on_focus_change(
     mut text_input_pipeline: ResMut<TextInputPipeline>,
     mut buffers: Query<&mut TextInputBuffer>,
     mut previous_input_focus: Local<Option<Entity>>,
+    mut actions_queue: ResMut<TextInputActionsQueue>,
 ) {
     if *previous_input_focus != input_focus.0 {
         if let Some(entity) = *previous_input_focus {
@@ -605,6 +613,7 @@ pub fn on_multi_click_set_selection(
     mut text_input_pipeline: ResMut<TextInputPipeline>,
     mut buffers: Query<&mut TextInputBuffer>,
     mut commands: Commands,
+    mut actions_queue: ResMut<TextInputActionsQueue>,
 ) {
     if click.button != PointerButton::Primary {
         return;
@@ -665,5 +674,155 @@ pub fn on_multi_click_set_selection(
 pub fn on_move_clear_multi_click(move_: Trigger<Pointer<Move>>, mut commands: Commands) {
     if let Ok(mut entity) = commands.get_entity(move_.target()) {
         entity.try_remove::<MultiClickData>();
+    }
+}
+
+pub fn queue_text_input_action(
+    // action: TextInputAction,
+    // mode: &TextInputMode,
+    // changes: &mut cosmic_undo_2::Commands<bevy::text::cosmic_text::Change>,
+    // max_chars: Option<usize>,
+    // filter_mode: &Option<TextInputFilter>,
+    mut shift_pressed: Local<bool>,
+    mut command_pressed: Local<bool>,
+    mut keyboard_events_reader: EventReader<KeyboardInput>,
+    mut input_focus: ResMut<InputFocus>,
+    clipboard: ResMut<Clipboard>,
+    mut actions: ResMut<TextInputActionsQueue>,
+) {
+    for keyboard_input in keyboard_events_reader.read() {
+        match keyboard_input.logical_key {
+            Key::Shift => {
+                *shift_pressed = keyboard_input.state == ButtonState::Pressed;
+                continue;
+            }
+            Key::Control => {
+                *command_pressed = keyboard_input.state == ButtonState::Pressed;
+                continue;
+            }
+            #[cfg(target_os = "macos")]
+            Key::Super => {
+                *command_pressed = keyboard_input.state == ButtonState::Pressed;
+                continue;
+            }
+            _ => {}
+        };
+
+        if keyboard_input.state.is_pressed() {
+            if *command_pressed {
+                match keyboard_input.logical_key {
+                    Key::Character(str) => {
+                        if let Some(char) = str.chars().next() {
+                            // convert to lowercase so that the commands work with capslock on
+                            match (char.to_ascii_lowercase(), *shift_pressed) {
+                                ('c', false) => {
+                                    // copy
+                                    actions.push(TextInputAction::Copy);
+                                }
+                                ('x', false) => {
+                                    // cut
+                                    if let Some(clipboard) 
+                                    actions.push(TextInputAction::Paste(clipboard.fetch_text()));
+                                }
+                                ('v', false) => {
+                                    // paste
+                                    let mut contents = clipboard.fetch_text();
+                                    if let Some(Ok(text)) = contents.poll_result() {
+                                        if input.max_chars.is_none_or(|max| {
+                                            editor.with_buffer(buffer_len) + text.len() <= max
+                                        }) {
+                                            if input
+                                                .filter
+                                                .is_none_or(|filter| filter.is_match(&text))
+                                            {
+                                                editor.insert_string(&text, None);
+                                            }
+                                        }
+                                    } else {
+                                        clipboard_queue.push(contents);
+                                    }
+                                }
+                                ('z', false) => {
+                                    for action in changes.undo() {
+                                        apply_action(&mut editor, action);
+                                    }
+                                }
+                                #[cfg(target_os = "macos")]
+                                ('z', true) => {
+                                    for action in changes.redo() {
+                                        apply_action(&mut editor, action);
+                                    }
+                                }
+                                ('y', false) => {
+                                    for action in changes.redo() {
+                                        apply_action(&mut editor, action);
+                                    }
+                                }
+                                ('a', false) => {
+                                    // select all
+                                    editor.action(Action::Motion(Motion::BufferStart));
+                                    let cursor = editor.cursor();
+                                    editor.set_selection(Selection::Normal(cursor));
+                                    editor.action(Action::Motion(Motion::BufferEnd));
+                                }
+                                _ => {
+                                    // not recognised, ignore
+                                }
+                            }
+                        }
+                    }
+                    Key::ArrowLeft => {
+                        apply_motion(&mut editor, *shift_pressed, Motion::PreviousWord);
+                    }
+                    Key::ArrowRight => {
+                        apply_motion(&mut editor, *shift_pressed, Motion::NextWord);
+                    }
+                    Key::ArrowUp => {
+                        if matches!(input.mode, TextInputMode::MultiLine { .. }) {
+                            editor.action(Action::Scroll { lines: -1 });
+                        }
+                    }
+                    Key::ArrowDown => {
+                        if matches!(input.mode, TextInputMode::MultiLine { .. }) {
+                            editor.action(Action::Scroll { lines: 1 });
+                        }
+                    }
+                    Key::Home => {
+                        apply_motion(&mut editor, *shift_pressed, Motion::BufferStart);
+                    }
+                    Key::End => {
+                        apply_motion(&mut editor, *shift_pressed, Motion::BufferEnd);
+                    }
+                    _ => {
+                        // not recognised, ignore
+                    }
+                }
+            }
+        }
+    }
+
+    match action {
+        TextInputAction::Submit => {
+            editor.action(Action::Submit);
+        }
+        TextInputAction::Copy => {
+            editor.action(Action::Copy);
+        }
+        TextInputAction::Paste(clipboard) => {
+            if let ClipboardRead::Ready(text) = clipboard {
+                if let Ok(text) = text {
+                    apply_text_input_edit(
+                        TextInputEdit::Paste(text),
+                        editor,
+                        changes,
+                        max_chars,
+                        filter_mode,
+                    );
+                }
+            }
+        }
+        TextInputAction::Edit(edit) => {
+            apply_text_input_edit(edit, editor, changes, max_chars, filter_mode);
+        }
     }
 }
