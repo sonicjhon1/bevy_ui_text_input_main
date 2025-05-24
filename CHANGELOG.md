@@ -8,7 +8,7 @@
 * Selections are cleared when a `TextInputNode` is unfocused.
 * Added clipboard support for wasm32.
 * Double-click to select a word.
-* Triple-click to seleect a paragraph.
+* Triple-click to select a paragraph.
 co-authored by [databasedav](https://github.com/databasedav)
 
 ### 0.3.0
