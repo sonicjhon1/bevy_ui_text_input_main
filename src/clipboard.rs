@@ -142,6 +142,11 @@ impl Clipboard {
                 Err(ClipboardError::ClipboardNotSupported)
             }
         }
+
+        #[cfg(not(any(unix, windows, target_arch = "wasm32")))]
+        {
+            ClipboardRead::Ready(Err(ClipboardError::ClipboardNotSupported))
+        }
     }
 }
 
