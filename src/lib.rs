@@ -1,3 +1,4 @@
+pub mod actions;
 pub mod clipboard;
 pub mod edit;
 pub mod render;
