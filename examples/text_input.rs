@@ -300,7 +300,7 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
                                             bevy::text::cosmic_text::Wrap::Word => bevy::text::cosmic_text::Wrap::WordOrGlyph,
                                             bevy::text::cosmic_text::Wrap::WordOrGlyph => bevy::text::cosmic_text::Wrap::None,
                                         };
-                                        input.mode = TextInputMode::Text { wrap };
+                                        input.mode = TextInputMode::MultiLine { wrap };
                                     }
                                 },
                             )

@@ -7,7 +7,8 @@ use bevy::{
     prelude::*,
 };
 use bevy_ui_text_input::{
-    TextInputMode, TextInputNode, TextInputPlugin, TextInputPrompt, TextSubmissionEvent,
+    TextInputFilter, TextInputMode, TextInputNode, TextInputPlugin, TextInputPrompt,
+    TextSubmissionEvent,
 };
 
 fn main() {
@@ -27,11 +28,11 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
 
     let mut map = InputMap::default();
 
-    let modes = [
-        (TextInputMode::TextSingleLine, "text"),
-        (TextInputMode::Integer, "integer"),
-        (TextInputMode::Decimal, "decimal"),
-        (TextInputMode::Hex, "hex"),
+    let filters = [
+        (None, "text)"),
+        (Some(TextInputFilter::Integer), "integer"),
+        (Some(TextInputFilter::Decimal), "decimal"),
+        (Some(TextInputFilter::Hex), "hex"),
     ];
 
     commands
@@ -53,11 +54,12 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
                     ..Default::default()
                 })
                 .with_children(|commands| {
-                    for (mode, prompt) in modes {
+                    for (filter, prompt) in filters {
                         let input_entity = commands
                             .spawn((
                                 TextInputNode {
-                                    mode,
+                                    mode: TextInputMode::SingleLine,
+                                    filter,
                                     max_chars: Some(20),
                                     ..Default::default()
                                 },

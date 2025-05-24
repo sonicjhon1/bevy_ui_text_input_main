@@ -29,7 +29,7 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
         })
         .with_child((
             TextInputNode {
-                mode: TextInputMode::TextSingleLine,
+                mode: TextInputMode::SingleLine,
                 max_chars: Some(20),
                 clear_on_submit: true,
                 ..Default::default()
