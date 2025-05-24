@@ -31,11 +31,14 @@ use edit::{
     on_move_clear_multi_click, on_multi_click_set_selection, on_text_input_pressed,
     text_input_edit_system,
 };
+use once_cell::sync::Lazy;
+use regex::Regex;
 use render::{extract_text_input_nodes, extract_text_input_prompts};
 use text_input_pipeline::{
     TextInputPipeline, remove_dropped_font_atlas_sets_from_text_input_pipeline,
     text_input_prompt_system, text_input_system,
 };
+
 pub struct TextInputPlugin;
 
 impl Plugin for TextInputPlugin {
@@ -116,6 +119,7 @@ impl Default for TextInputNode {
         Self {
             clear_on_submit: true,
             mode: TextInputMode::default(),
+            filter: None,
             max_chars: None,
             allow_overwrite_mode: true,
             is_enabled: true,
@@ -187,10 +191,10 @@ pub enum TextInputFilter {
     Hex,
 }
 
-impl TextInputFilter {
-    static INTEGER_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"^-?$|^-?\d+$").unwrap());
-    static DECIMAL_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"^-?$|^-?\d*\.?\d*$").unwrap());
+static INTEGER_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"^-?$|^-?\d+$").unwrap());
+static DECIMAL_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"^-?$|^-?\d*\.?\d*$").unwrap());
 
+impl TextInputFilter {
     pub fn regex(&self) -> Option<&regex::Regex> {
         match self {
             TextInputFilter::Integer => Some(&INTEGER_REGEX),
@@ -198,8 +202,34 @@ impl TextInputFilter {
             TextInputFilter::Hex => None,
         }
     }
-}
 
+    fn is_match_char(&self, ch: char) -> bool {
+        match self {
+            TextInputFilter::Integer => {
+                // Allow only numeric characters
+                ch.is_ascii_digit() || ch == '-'
+            }
+            TextInputFilter::Hex => {
+                // Allow hexadecimal characters (0-9, a-f, A-F)
+                ch.is_ascii_hexdigit()
+            }
+            TextInputFilter::Decimal => {
+                // Allow numeric characters and a single decimal point
+                ch.is_ascii_digit() || ch == '.' || ch == '-'
+            }
+        }
+    }
+
+    fn is_match(self, text: &str) -> bool {
+        if let Some(regex) = self.regex() {
+            // If a regex is defined, use it to validate the entire text
+            regex.is_match(text)
+        } else {
+            // Otherwise, check each character against the filter
+            text.chars().all(|ch| self.is_match_char(ch))
+        }
+    }
+}
 
 impl Default for TextInputMode {
     fn default() -> Self {

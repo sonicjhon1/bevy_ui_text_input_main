@@ -32,12 +32,9 @@ use bevy::text::cosmic_text::Selection;
 use bevy::time::Time;
 use bevy::transform::components::GlobalTransform;
 use bevy::ui::ComputedNode;
-use once_cell::sync::Lazy;
-use regex::Regex;
 
 use crate::SubmitTextEvent;
 use crate::TextInputBuffer;
-use crate::TextInputFilter;
 use crate::TextInputMode;
 use crate::TextInputNode;
 use crate::TextInputStyle;
@@ -76,27 +73,6 @@ fn apply_motion<'a>(
         editor.action(Action::Escape);
     }
     editor.action(Action::Motion(motion));
-}
-
-fn filter_char_input(mode: TextInputFilter, ch: char) -> bool {
-    match mode {
-        TextInputFilter::Integer => {
-            // Allow only numeric characters
-            ch.is_ascii_digit() || ch == '-'
-        }
-        TextInputFilter::Hex => {
-            // Allow hexadecimal characters (0-9, a-f, A-F)
-            ch.is_ascii_hexdigit()
-        }
-        TextInputFilter::Decimal => {
-            // Allow numeric characters and a single decimal point
-            ch.is_ascii_digit() || ch == '.' || ch == '-'
-        }
-    }
-}
-
-fn filter_text(filter: TextInputFilter, text: &str) -> bool {
-    text.chars().all(|ch| filter_char_input(filter, ch))
 }
 
 fn buffer_len(buffer: &bevy::text::cosmic_text::Buffer) -> usize {
@@ -174,7 +150,7 @@ pub fn text_input_edit_system(
                 .max_chars
                 .is_none_or(|max| editor.with_buffer(buffer_len) + text.len() <= max)
             {
-                if filter_text(input.mode, &text) {
+                if input.filter.is_none_or(|filter| filter.is_match(&text)) {
                     editor.insert_string(&text, None);
                 }
             }
@@ -246,7 +222,10 @@ pub fn text_input_edit_system(
                                         if input.max_chars.is_none_or(|max| {
                                             editor.with_buffer(buffer_len) + text.len() <= max
                                         }) {
-                                            if filter_text(input.mode, &text) {
+                                            if input
+                                                .filter
+                                                .is_none_or(|filter| filter.is_match(&text))
+                                            {
                                                 editor.insert_string(&text, None);
                                             }
                                         }
@@ -290,12 +269,12 @@ pub fn text_input_edit_system(
                         apply_motion(&mut editor, *shift_pressed, Motion::NextWord);
                     }
                     Key::ArrowUp => {
-                        if matches!(input.mode, TextInputMode::Text { .. }) {
+                        if matches!(input.mode, TextInputMode::MultiLine { .. }) {
                             editor.action(Action::Scroll { lines: -1 });
                         }
                     }
                     Key::ArrowDown => {
-                        if matches!(input.mode, TextInputMode::Text { .. }) {
+                        if matches!(input.mode, TextInputMode::MultiLine { .. }) {
                             editor.action(Action::Scroll { lines: 1 });
                         }
                     }
@@ -316,11 +295,9 @@ pub fn text_input_edit_system(
                 }
                 match key {
                     Key::Character(str) => {
-                        if let Some(char) = str
-                            .chars()
-                            .next()
-                            .filter(|ch| filter_char_input(input.mode, *ch))
-                        {
+                        if let Some(char) = str.chars().next().filter(|ch| {
+                            input.filter.is_none_or(|filter| filter.is_match_char(*ch))
+                        }) {
                             if editor.selection() != Selection::None {
                                 editor.action(Action::Insert(char));
                             } else if *overwrite_mode && !cursor_at_line_end(&mut editor) {
@@ -331,14 +308,10 @@ pub fn text_input_edit_system(
                                 .is_none_or(|max_chars| editor.with_buffer(buffer_len) < max_chars)
                             {
                                 editor.action(Action::Insert(char));
-                                let re = match input.mode {
-                                    TextInputMode::Integer => Some(&INTEGER_RE),
-                                    TextInputMode::Decimal => Some(&DECIMAL_RE),
-                                    _ => None,
-                                };
-                                if let Some(re) = re {
+
+                                if let Some(filter) = input.filter {
                                     let text = editor.with_buffer(crate::get_text);
-                                    if !re.is_match(&text) {
+                                    if !filter.is_match(&text) {
                                         editor.action(Action::Backspace);
                                     }
                                 }
@@ -346,7 +319,7 @@ pub fn text_input_edit_system(
                         }
                     }
                     Key::Enter => match (*shift_pressed, input.mode) {
-                        (false, TextInputMode::Text { .. }) => {
+                        (false, TextInputMode::MultiLine { .. }) => {
                             editor.action(Action::Enter);
                         }
                         _ => {
@@ -417,7 +390,7 @@ pub fn text_input_edit_system(
                         editor.action(Action::Escape);
                     }
                     Key::Tab => {
-                        if matches!(input.mode, TextInputMode::Text { .. }) {
+                        if matches!(input.mode, TextInputMode::MultiLine { .. }) {
                             if *shift_pressed {
                                 editor.action(Action::Unindent);
                             } else {
@@ -570,7 +543,7 @@ pub fn mouse_wheel_scroll(
                     continue;
                 };
 
-                if !matches!(input.mode, TextInputMode::Text { .. }) {
+                if !matches!(input.mode, TextInputMode::MultiLine { .. }) {
                     continue;
                 }
 
