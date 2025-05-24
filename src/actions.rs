@@ -9,8 +9,6 @@ use bevy::text::cosmic_text::Selection;
 use std::collections::VecDeque;
 
 use crate::TextInputFilter;
-use crate::TextInputMode;
-use crate::clipboard::ClipboardRead;
 use crate::edit::apply_action;
 use crate::edit::apply_motion;
 use crate::edit::buffer_len;
@@ -23,7 +21,6 @@ pub enum TextInputAction {
     Copy,
     Paste,
     Edit(TextInputEdit),
-    SwitchInsertMode,
 }
 
 /// An action to perform on a [`TextInputEditor`]

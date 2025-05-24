@@ -14,6 +14,7 @@ use bevy::ecs::entity::Entity;
 use bevy::ecs::event::Event;
 use bevy::ecs::observer::Observer;
 use bevy::ecs::query::Changed;
+use bevy::ecs::resource::Resource;
 use bevy::ecs::schedule::IntoScheduleConfigs;
 use bevy::ecs::schedule::common_conditions::resource_changed;
 use bevy::ecs::system::Query;
@@ -47,6 +48,7 @@ impl Plugin for TextInputPlugin {
         app.add_event::<TextSubmissionEvent>()
             .add_event::<SubmitTextEvent>()
             .init_resource::<InputFocus>()
+            .init_resource::<TextInputModKeys>()
             .init_resource::<TextInputPipeline>()
             .init_resource::<clipboard::Clipboard>()
             .add_systems(
@@ -420,4 +422,10 @@ pub fn update_text_input_contents(
             contents.text = text;
         }
     }
+}
+
+#[derive(Resource, Default)]
+pub struct TextInputModKeys {
+    pub shift: bool,
+    pub command: bool,
 }
