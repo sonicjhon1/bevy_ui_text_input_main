@@ -45,10 +45,11 @@ use crate::clipboard::Clipboard;
 use crate::clipboard::ClipboardRead;
 use crate::text_input_pipeline::TextInputPipeline;
 
-static INTEGER_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"^-?$|^-?\d+$").unwrap());
-static DECIMAL_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"^-?$|^-?\d*\.?\d*$").unwrap());
+pub(crate) static INTEGER_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"^-?$|^-?\d+$").unwrap());
+pub(crate) static DECIMAL_REGEX: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"^-?$|^-?\d*\.?\d*$").unwrap());
 
-fn apply_action<'a>(
+pub fn apply_action<'a>(
     editor: &mut BorrowedWithFontSystem<Editor<'a>>,
     action: cosmic_undo_2::Action<&Change>,
 ) {
@@ -64,7 +65,7 @@ fn apply_action<'a>(
     }
 }
 
-fn apply_motion<'a>(
+pub fn apply_motion<'a>(
     editor: &mut BorrowedWithFontSystem<Editor<'a>>,
     shift_pressed: bool,
     motion: Motion,
@@ -102,11 +103,11 @@ fn filter_char_input(mode: TextInputMode, ch: char) -> bool {
     }
 }
 
-fn filter_text(mode: TextInputMode, text: &str) -> bool {
+pub fn filter_text(mode: TextInputMode, text: &str) -> bool {
     matches!(mode, TextInputMode::Text { .. }) || text.chars().all(|ch| filter_char_input(mode, ch))
 }
 
-fn buffer_len(buffer: &bevy::text::cosmic_text::Buffer) -> usize {
+pub fn buffer_len(buffer: &bevy::text::cosmic_text::Buffer) -> usize {
     buffer
         .lines
         .iter()
@@ -114,7 +115,7 @@ fn buffer_len(buffer: &bevy::text::cosmic_text::Buffer) -> usize {
         .sum()
 }
 
-fn cursor_at_line_end(editor: &mut BorrowedWithFontSystem<Editor<'_>>) -> bool {
+pub fn cursor_at_line_end(editor: &mut BorrowedWithFontSystem<Editor<'_>>) -> bool {
     let cursor = editor.cursor();
     editor.with_buffer(|buffer| {
         buffer
@@ -339,8 +340,8 @@ pub fn text_input_edit_system(
                             {
                                 editor.action(Action::Insert(char));
                                 let re = match input.mode {
-                                    TextInputMode::Integer => Some(&INTEGER_RE),
-                                    TextInputMode::Decimal => Some(&DECIMAL_RE),
+                                    TextInputMode::Integer => Some(&INTEGER_REGEX),
+                                    TextInputMode::Decimal => Some(&DECIMAL_REGEX),
                                     _ => None,
                                 };
                                 if let Some(re) = re {

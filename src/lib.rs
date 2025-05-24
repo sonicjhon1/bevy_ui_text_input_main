@@ -198,6 +198,14 @@ impl TextInputMode {
             _ => Wrap::None,
         }
     }
+
+    pub fn regex(&self) -> Option<&regex::Regex> {
+        match self {
+            TextInputMode::Integer => Some(&edit::INTEGER_REGEX),
+            TextInputMode::Decimal => Some(&edit::DECIMAL_REGEX),
+            _ => None,
+        }
+    }
 }
 
 #[derive(Component, Debug)]
