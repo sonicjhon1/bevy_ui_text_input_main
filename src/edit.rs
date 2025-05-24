@@ -75,7 +75,7 @@ pub fn apply_motion<'a>(
     editor.action(Action::Motion(motion));
 }
 
-fn buffer_len(buffer: &bevy::text::cosmic_text::Buffer) -> usize {
+pub fn buffer_len(buffer: &bevy::text::cosmic_text::Buffer) -> usize {
     buffer
         .lines
         .iter()

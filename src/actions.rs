@@ -8,13 +8,12 @@ use bevy::text::cosmic_text::Motion;
 use bevy::text::cosmic_text::Selection;
 use std::collections::VecDeque;
 
-use crate::TextInputMode;
+use crate::TextInputFilter;
 use crate::clipboard::ClipboardRead;
 use crate::edit::apply_action;
 use crate::edit::apply_motion;
 use crate::edit::buffer_len;
 use crate::edit::cursor_at_line_end;
-use crate::edit::filter_text;
 
 /// An action to perform on a [`TextInputEditor`]
 #[derive(Debug)]
@@ -92,7 +91,7 @@ pub fn apply_edit(
     editor: &mut BorrowedWithFontSystem<'_, Editor<'static>>,
     changes: &mut cosmic_undo_2::Commands<bevy::text::cosmic_text::Change>,
     max_chars: Option<usize>,
-    input_mode: &TextInputMode,
+    filter_mode: &Option<TextInputFilter>,
 ) {
     editor.start_change();
 
@@ -111,9 +110,9 @@ pub fn apply_edit(
                 editor.action(Action::Insert(ch));
             } else if max_chars.is_none_or(|max_chars| editor.with_buffer(buffer_len) < max_chars) {
                 editor.action(Action::Insert(ch));
-                if let Some(regex) = input_mode.regex() {
+                if let Some(filter_mode) = filter_mode {
                     let text = editor.with_buffer(crate::get_text);
-                    if !regex.is_match(&text) {
+                    if !filter_mode.is_match(&text) {
                         editor.action(Action::Backspace);
                     }
                 }
@@ -156,7 +155,7 @@ pub fn apply_edit(
         }
         TextInputEdit::Paste(text) => {
             if max_chars.is_none_or(|max| editor.with_buffer(buffer_len) + text.len() <= max) {
-                if filter_text(*input_mode, &text) {
+                if filter_mode.is_none_or(|filter| filter.is_match(&text)) {
                     editor.insert_string(&text, None);
                 }
             }
