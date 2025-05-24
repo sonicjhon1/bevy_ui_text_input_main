@@ -20,7 +20,7 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>, mut active_input: Res
     let input_entity = commands
         .spawn((
             TextInputNode {
-                mode: TextInputMode::TextSingleLine,
+                mode: TextInputMode::SingleLine,
                 ..Default::default()
             },
             TextFont {

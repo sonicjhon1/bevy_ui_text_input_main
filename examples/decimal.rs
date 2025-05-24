@@ -1,7 +1,9 @@
 //! minimal text input example
 
 use bevy::{color::palettes::css::NAVY, input_focus::InputFocus, prelude::*};
-use bevy_ui_text_input::{TextInputMode, TextInputNode, TextInputPlugin, TextSubmissionEvent};
+use bevy_ui_text_input::{
+    TextInputFilter, TextInputMode, TextInputNode, TextInputPlugin, TextSubmissionEvent,
+};
 
 fn main() {
     App::new()
@@ -18,7 +20,8 @@ fn setup(mut commands: Commands, mut active_input: ResMut<InputFocus>) {
     let input_entity = commands
         .spawn((
             TextInputNode {
-                mode: TextInputMode::Decimal,
+                mode: TextInputMode::SingleLine,
+                filter: Some(TextInputFilter::Decimal),
                 max_chars: Some(10),
                 ..Default::default()
             },
