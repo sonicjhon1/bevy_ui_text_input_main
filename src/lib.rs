@@ -95,6 +95,8 @@ pub struct TextInputNode {
     pub clear_on_submit: bool,
     /// Type of text input
     pub mode: TextInputMode,
+    /// Optional filter for the text input
+    pub filter: Option<TextInputFilter>,
     /// Maximum number of characters that can entered into the input buffer
     pub max_chars: Option<usize>,
     /// Should overwrite mode be available
@@ -159,32 +161,49 @@ pub struct SubmitTextEvent {
     pub entity: Entity,
 }
 
+/// Mode of text input
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum TextInputMode {
     /// Scrolling text input
     /// Submit on shift-enter
-    Text { wrap: Wrap },
-    /// Single line numeric input
-    /// Scrolls horizontally
-    /// Submit on enter
-    Integer,
-    /// Single line decimal input
-    /// Scrolls horizontally
-    /// Submit on enter
-    Decimal,
-    /// Single line hexadecimal input
-    /// Scrolls horizontally
-    /// Submit on enter
-    Hex,
+    MultiLine { wrap: Wrap },
     /// Single line text input
     /// Scrolls horizontally
     /// Submit on enter
-    TextSingleLine,
+    SingleLine,
 }
+
+/// Filter for text input
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub enum TextInputFilter {
+    /// Integer input
+    /// accepts only digits and a leading sign
+    Integer,
+    /// Decimal input
+    /// accepts only digits, a decimal point and a leading sign
+    Decimal,
+    /// Hexadecimal input
+    /// accepts only `0-9`, `a-f` and `A-F`
+    Hex,
+}
+
+impl TextInputFilter {
+    static INTEGER_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"^-?$|^-?\d+$").unwrap());
+    static DECIMAL_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"^-?$|^-?\d*\.?\d*$").unwrap());
+
+    pub fn regex(&self) -> Option<&regex::Regex> {
+        match self {
+            TextInputFilter::Integer => Some(&INTEGER_REGEX),
+            TextInputFilter::Decimal => Some(&DECIMAL_REGEX),
+            TextInputFilter::Hex => None,
+        }
+    }
+}
+
 
 impl Default for TextInputMode {
     fn default() -> Self {
-        Self::Text {
+        Self::MultiLine {
             wrap: Wrap::WordOrGlyph,
         }
     }
@@ -193,7 +212,7 @@ impl Default for TextInputMode {
 impl TextInputMode {
     pub fn wrap(&self) -> Wrap {
         match self {
-            TextInputMode::Text { wrap } => *wrap,
+            TextInputMode::MultiLine { wrap } => *wrap,
             _ => Wrap::None,
         }
     }

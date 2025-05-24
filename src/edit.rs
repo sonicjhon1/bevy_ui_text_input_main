@@ -37,6 +37,7 @@ use regex::Regex;
 
 use crate::SubmitTextEvent;
 use crate::TextInputBuffer;
+use crate::TextInputFilter;
 use crate::TextInputMode;
 use crate::TextInputNode;
 use crate::TextInputStyle;
@@ -44,9 +45,6 @@ use crate::TextSubmissionEvent;
 use crate::clipboard::Clipboard;
 use crate::clipboard::ClipboardRead;
 use crate::text_input_pipeline::TextInputPipeline;
-
-static INTEGER_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"^-?$|^-?\d+$").unwrap());
-static DECIMAL_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"^-?$|^-?\d*\.?\d*$").unwrap());
 
 fn apply_action<'a>(
     editor: &mut BorrowedWithFontSystem<Editor<'a>>,
@@ -80,30 +78,25 @@ fn apply_motion<'a>(
     editor.action(Action::Motion(motion));
 }
 
-fn filter_char_input(mode: TextInputMode, ch: char) -> bool {
+fn filter_char_input(mode: TextInputFilter, ch: char) -> bool {
     match mode {
-        TextInputMode::TextSingleLine => ch != '\n',
-        TextInputMode::Text { .. } => {
-            // Allow all characters for text mode
-            true
-        }
-        TextInputMode::Integer => {
+        TextInputFilter::Integer => {
             // Allow only numeric characters
             ch.is_ascii_digit() || ch == '-'
         }
-        TextInputMode::Hex => {
+        TextInputFilter::Hex => {
             // Allow hexadecimal characters (0-9, a-f, A-F)
             ch.is_ascii_hexdigit()
         }
-        TextInputMode::Decimal => {
+        TextInputFilter::Decimal => {
             // Allow numeric characters and a single decimal point
             ch.is_ascii_digit() || ch == '.' || ch == '-'
         }
     }
 }
 
-fn filter_text(mode: TextInputMode, text: &str) -> bool {
-    matches!(mode, TextInputMode::Text { .. }) || text.chars().all(|ch| filter_char_input(mode, ch))
+fn filter_text(filter: TextInputFilter, text: &str) -> bool {
+    text.chars().all(|ch| filter_char_input(filter, ch))
 }
 
 fn buffer_len(buffer: &bevy::text::cosmic_text::Buffer) -> usize {
