@@ -102,12 +102,6 @@ pub fn apply_text_input_edit(
                 editor.action(Action::Insert(ch));
             } else if max_chars.is_none_or(|max_chars| editor.with_buffer(buffer_len) < max_chars) {
                 editor.action(Action::Insert(ch));
-                if let Some(filter_mode) = filter_mode {
-                    let text = editor.with_buffer(crate::get_text);
-                    if !filter_mode.is_match(&text) {
-                        editor.action(Action::Backspace);
-                    }
-                }
             }
         }
         TextInputEdit::Backspace => {
@@ -147,9 +141,7 @@ pub fn apply_text_input_edit(
         }
         TextInputEdit::Paste(text) => {
             if max_chars.is_none_or(|max| editor.with_buffer(buffer_len) + text.len() <= max) {
-                if filter_mode.is_none_or(|filter| filter.is_match(&text)) {
-                    editor.insert_string(&text, None);
-                }
+                editor.insert_string(&text, None);
             }
         }
         TextInputEdit::Undo => {
@@ -185,7 +177,18 @@ pub fn apply_text_input_edit(
     if let Some(change) = editor.finish_change() {
         if !change.items.is_empty() {
             changes.push(change);
-            editor.set_redraw(true);
+            if let Some(filter_mode) = filter_mode {
+                let text = editor.with_buffer(crate::get_text);
+                if !filter_mode.is_match(&text) {
+                    for action in changes.undo() {
+                        apply_action(editor, action);
+                    }
+                } else {
+                    editor.set_redraw(true);
+                }
+            } else {
+                editor.set_redraw(true);
+            }
         }
     }
 }
