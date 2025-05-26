@@ -75,7 +75,6 @@ pub enum TextInputEdit {
     ScrollDown {
         lines: i32,
     },
-    ClearSelection,
 }
 
 pub fn apply_text_input_edit(
@@ -147,11 +146,13 @@ pub fn apply_text_input_edit(
         TextInputEdit::Undo => {
             for action in changes.undo() {
                 apply_action(editor, action);
+                editor.set_redraw(true);
             }
         }
         TextInputEdit::Redo => {
             for action in changes.redo() {
                 apply_action(editor, action);
+                editor.set_redraw(true);
             }
         }
         TextInputEdit::SelectAll => {
@@ -169,26 +170,25 @@ pub fn apply_text_input_edit(
         TextInputEdit::Enter => {
             editor.action(Action::Enter);
         }
-        TextInputEdit::ClearSelection => {
-            editor.set_selection(Selection::None);
+    }
+
+    let Some(mut change) = editor.finish_change() else {
+        return;
+    };
+
+    if change.items.is_empty() {
+        return;
+    }
+
+    if let Some(filter_mode) = filter_mode {
+        let text = editor.with_buffer(crate::get_text);
+        if !filter_mode.is_match(&text) {
+            change.reverse();
+            editor.apply_change(&change);
+            return;
         }
     }
 
-    if let Some(change) = editor.finish_change() {
-        if !change.items.is_empty() {
-            changes.push(change);
-            if let Some(filter_mode) = filter_mode {
-                let text = editor.with_buffer(crate::get_text);
-                if !filter_mode.is_match(&text) {
-                    for action in changes.undo() {
-                        apply_action(editor, action);
-                    }
-                } else {
-                    editor.set_redraw(true);
-                }
-            } else {
-                editor.set_redraw(true);
-            }
-        }
-    }
+    changes.push(change);
+    editor.set_redraw(true);
 }
