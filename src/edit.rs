@@ -1,4 +1,3 @@
-use crate::SubmitTextEvent;
 use crate::TextInputActionsQueue;
 use crate::TextInputBuffer;
 use crate::TextInputGlobalState;
@@ -27,7 +26,6 @@ use bevy::input::mouse::MouseScrollUnit;
 use bevy::input::mouse::MouseWheel;
 use bevy::input_focus::FocusedInput;
 use bevy::input_focus::InputFocus;
-use bevy::log::info;
 use bevy::math::Rect;
 use bevy::picking::events::Click;
 use bevy::picking::events::Drag;
@@ -236,22 +234,6 @@ pub fn mouse_wheel_scroll(
     }
 }
 
-// pub fn clear_selection_on_focus_change(
-//     input_focus: Res<InputFocus>,
-//     mut text_input_pipeline: ResMut<TextInputPipeline>,
-//     mut buffers: Query<&mut TextInputActionsQueue>,
-//     mut previous_input_focus: Local<Option<Entity>>,
-// ) {
-//     if *previous_input_focus != input_focus.0 {
-//         if let Some(entity) = *previous_input_focus {
-//             if let Ok(mut buffer) = buffers.get_mut(entity) {
-//                buffers
-//             }
-//         }
-//         *previous_input_focus = input_focus.0;
-//     }
-// }
-
 const MULTI_CLICK_PERIOD: f32 = 0.5; // seconds
 
 #[derive(Component)]
@@ -272,7 +254,6 @@ pub fn on_multi_click_set_selection(
     )>,
     mut multi_click_datas: Query<&mut MultiClickData>,
     mut text_input_pipeline: ResMut<TextInputPipeline>,
-    //mut buffers: Query<&mut TextInputBuffer>,
     mut commands: Commands,
 ) {
     if click.button != PointerButton::Primary {

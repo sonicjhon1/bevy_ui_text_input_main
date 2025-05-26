@@ -126,13 +126,9 @@ pub fn text_input_system(
     for (node, text_font, text_input_layout_info, mut editor, input) in text_query.iter_mut() {
         let layout_info = text_input_layout_info.into_inner();
         let y_axis_orientation = YAxisOrientation::TopToBottom;
-        if editor.needs_update
-            || editor.set_text.is_some()
-            || text_font.is_changed()
-            || node.is_changed()
-            || input.is_changed()
+        if editor.needs_update || text_font.is_changed() || node.is_changed() || input.is_changed()
         {
-            let text = editor.set_text.take().unwrap_or_else(|| editor.get_text());
+            let text = editor.get_text();
 
             let bounds = TextBounds {
                 width: Some(node.size().x),
@@ -183,9 +179,9 @@ pub fn text_input_system(
                 Ok(())
             });
 
-            editor.needs_update = result.is_err();
             if result.is_err() {
-                editor.set_text = Some(text);
+                // If there was an error, we will try again next frame
+                editor.needs_update = true;
             } else {
                 editor.editor.set_redraw(true);
             }

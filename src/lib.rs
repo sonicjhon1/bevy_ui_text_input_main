@@ -257,7 +257,6 @@ impl TextInputMode {
 
 #[derive(Component, Debug)]
 pub struct TextInputBuffer {
-    set_text: Option<String>,
     pub editor: Editor<'static>,
     pub(crate) selection_rects: Vec<Rect>,
     pub(crate) cursor_blink_time: f32,
@@ -267,16 +266,6 @@ pub struct TextInputBuffer {
 }
 
 impl TextInputBuffer {
-    /// set the text for the input, overwriting any existing contents.
-    pub fn set_text(&mut self, text: String) {
-        self.set_text = Some(text);
-    }
-
-    /// clear the input
-    pub fn clear(&mut self) {
-        self.set_text(String::new());
-    }
-
     pub fn get_text(&self) -> String {
         self.editor.with_buffer(get_text)
     }
@@ -285,7 +274,6 @@ impl TextInputBuffer {
 impl Default for TextInputBuffer {
     fn default() -> Self {
         Self {
-            set_text: None,
             editor: Editor::new(Buffer::new_empty(Metrics::new(20.0, 20.0))),
             selection_rects: vec![],
             cursor_blink_time: 0.,
