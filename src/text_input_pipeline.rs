@@ -128,8 +128,6 @@ pub fn text_input_system(
         let y_axis_orientation = YAxisOrientation::TopToBottom;
         if editor.needs_update || text_font.is_changed() || node.is_changed() || input.is_changed()
         {
-            let text = editor.get_text();
-
             let bounds = TextBounds {
                 width: Some(node.size().x),
                 height: Some(node.size().y),
@@ -171,6 +169,7 @@ pub fn text_input_system(
                     .weight(face_info.weight)
                     .metrics(metrics);
 
+                let text = crate::get_text(buffer);
                 buffer.set_text(font_system, &text, attrs, cosmic_text::Shaping::Advanced);
                 for buffer_line in buffer.lines.iter_mut() {
                     buffer_line.set_align(input.alignment);
@@ -179,11 +178,12 @@ pub fn text_input_system(
                 Ok(())
             });
 
-            if result.is_err() {
-                // If there was an error, we will try again next frame
-                editor.needs_update = true;
-            } else {
+            if result.is_ok() {
+                editor.needs_update = false;
                 editor.editor.set_redraw(true);
+            } else {
+                editor.needs_update = true;
+                continue;
             }
         }
 
@@ -199,6 +199,7 @@ pub fn text_input_system(
         } = &mut *editor;
 
         if editor.redraw() {
+            bevy::log::info!("reshape");
             layout_info.glyphs.clear();
             selection_rects.clear();
 
