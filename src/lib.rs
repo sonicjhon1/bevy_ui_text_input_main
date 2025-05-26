@@ -4,6 +4,9 @@ pub mod edit;
 pub mod render;
 pub mod text_input_pipeline;
 
+use std::collections::VecDeque;
+
+use actions::TextInputAction;
 use bevy::app::{Plugin, PostUpdate};
 use bevy::asset::AssetEvents;
 use bevy::color::Color;
@@ -30,8 +33,8 @@ use bevy::text::{GlyphAtlasInfo, TextFont};
 use bevy::ui::{Node, RenderUiSystem, UiSystem, extract_text_sections};
 use edit::{
     clear_selection_on_focus_change, mouse_wheel_scroll, on_drag_text_input,
-    on_move_clear_multi_click, on_multi_click_set_selection, on_text_input_pressed,
-    text_input_edit_system,
+    on_focused_keyboard_input, on_move_clear_multi_click, on_multi_click_set_selection,
+    on_text_input_pressed, text_input_edit_system,
 };
 use once_cell::sync::Lazy;
 use regex::Regex;
@@ -46,9 +49,9 @@ pub struct TextInputPlugin;
 impl Plugin for TextInputPlugin {
     fn build(&self, app: &mut bevy::app::App) {
         app.add_event::<TextSubmissionEvent>()
+            .add_plugins(bevy::input_focus::InputDispatchPlugin)
             .add_event::<SubmitTextEvent>()
-            .init_resource::<InputFocus>()
-            .init_resource::<TextInputModKeys>()
+            .init_resource::<TextInputGlobalState>()
             .init_resource::<TextInputPipeline>()
             .init_resource::<clipboard::Clipboard>()
             .add_systems(
@@ -139,6 +142,7 @@ fn on_add_textinputnode(mut world: DeferredWorld, context: HookContext) {
         Observer::new(on_text_input_pressed),
         Observer::new(on_multi_click_set_selection),
         Observer::new(on_move_clear_multi_click),
+        Observer::new(on_focused_keyboard_input),
     ] {
         observer.watch_entity(context.entity);
         world.commands().spawn(observer);
@@ -257,7 +261,6 @@ pub struct TextInputBuffer {
     pub editor: Editor<'static>,
     pub(crate) selection_rects: Vec<Rect>,
     pub(crate) cursor_blink_time: f32,
-    pub(crate) overwrite_mode: bool,
     pub(crate) needs_update: bool,
     pub(crate) prompt_buffer: Option<Buffer>,
     pub(crate) changes: cosmic_undo_2::Commands<Change>,
@@ -425,7 +428,27 @@ pub fn update_text_input_contents(
 }
 
 #[derive(Resource, Default)]
-pub struct TextInputModKeys {
+pub struct TextInputGlobalState {
     pub shift: bool,
     pub command: bool,
+    pub overwrite_mode: bool,
+}
+
+#[derive(Component, Default, Debug)]
+pub struct TextInputActionsQueue {
+    pub actions: VecDeque<TextInputAction>,
+}
+
+impl TextInputActionsQueue {
+    pub fn add(&mut self, action: TextInputAction) {
+        self.actions.push_back(action);
+    }
+
+    pub fn next(&mut self) -> Option<TextInputAction> {
+        self.actions.pop_front()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.actions.is_empty()
+    }
 }

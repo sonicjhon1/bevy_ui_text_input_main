@@ -1,3 +1,4 @@
+use arboard::Clipboard;
 use bevy::ecs::entity::Entity;
 use bevy::ecs::resource::Resource;
 use bevy::text::cosmic_text::Action;
@@ -9,6 +10,7 @@ use bevy::text::cosmic_text::Selection;
 use std::collections::VecDeque;
 
 use crate::TextInputFilter;
+use crate::clipboard::ClipboardRead;
 use crate::edit::apply_action;
 use crate::edit::apply_motion;
 use crate::edit::buffer_len;
@@ -20,6 +22,7 @@ pub enum TextInputAction {
     Cut,
     Copy,
     Paste,
+    PasteDeferred(ClipboardRead),
     Edit(TextInputEdit),
 }
 
@@ -72,19 +75,6 @@ pub enum TextInputEdit {
     SelectAll,
     ScrollUp,
     ScrollDown,
-}
-
-#[derive(Resource, Debug, Default)]
-pub struct TextInputActionsQueue(VecDeque<(Entity, TextInputAction)>);
-
-impl TextInputActionsQueue {
-    pub fn push(&mut self, entity: Entity, action: TextInputAction) {
-        self.0.push_back((entity, action));
-    }
-
-    pub fn pop(&mut self) -> Option<(Entity, TextInputAction)> {
-        self.0.pop_front()
-    }
 }
 
 pub fn apply_text_input_edit(
