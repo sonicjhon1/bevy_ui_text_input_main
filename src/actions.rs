@@ -69,12 +69,6 @@ pub enum TextInputEdit {
     Undo,
     Redo,
     SelectAll,
-    ScrollUp {
-        lines: i32,
-    },
-    ScrollDown {
-        lines: i32,
-    },
 }
 
 pub fn apply_text_input_edit(
@@ -160,12 +154,6 @@ pub fn apply_text_input_edit(
             let cursor = editor.cursor();
             editor.set_selection(Selection::Normal(cursor));
             editor.action(Action::Motion(Motion::BufferEnd));
-        }
-        TextInputEdit::ScrollUp { lines } => {
-            editor.action(Action::Scroll { lines });
-        }
-        TextInputEdit::ScrollDown { lines } => {
-            editor.action(Action::Scroll { lines });
         }
         TextInputEdit::Enter => {
             editor.action(Action::Enter);
