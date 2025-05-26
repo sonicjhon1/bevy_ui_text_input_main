@@ -33,6 +33,7 @@ use bevy::ui::{Node, RenderUiSystem, UiSystem, extract_text_sections};
 use edit::{
     cursor_blink_system, mouse_wheel_scroll, on_drag_text_input, on_focused_keyboard_input,
     on_move_clear_multi_click, on_multi_click_set_selection, on_text_input_pressed,
+    process_text_input_actions_queue,
 };
 use once_cell::sync::Lazy;
 use regex::Regex;
@@ -59,6 +60,7 @@ impl Plugin for TextInputPlugin {
                     (
                         cursor_blink_system,
                         mouse_wheel_scroll,
+                        process_text_input_actions_queue,
                         update_text_input_contents,
                         text_input_system,
                         text_input_prompt_system,
@@ -89,7 +91,8 @@ impl Plugin for TextInputPlugin {
     TextFont,
     TextInputLayoutInfo,
     TextInputStyle,
-    TextColor
+    TextColor,
+    TextInputActionsQueue
 )]
 #[component(
     on_add = on_add_textinputnode,

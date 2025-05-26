@@ -566,23 +566,20 @@ pub fn cursor_blink_system(
     }
 }
 
-pub fn apply_text_input_actions_system(
+pub fn process_text_input_actions_queue(
     mut query: Query<(
         Entity,
         &TextInputNode,
         &mut TextInputBuffer,
         &mut TextInputActionsQueue,
-        &TextInputStyle,
     )>,
     mut text_input_pipeline: ResMut<TextInputPipeline>,
-    mut submit_reader: EventReader<SubmitTextEvent>,
     mut submit_writer: EventWriter<TextSubmissionEvent>,
     mut clipboard: ResMut<Clipboard>,
-    time: Res<Time>,
 ) {
     let mut font_system = &mut text_input_pipeline.font_system;
 
-    for (entity, node, mut buffer, mut actions_queue, style) in query.iter_mut() {
+    for (entity, node, mut buffer, mut actions_queue) in query.iter_mut() {
         let TextInputBuffer {
             editor,
             changes,
@@ -655,7 +652,6 @@ pub fn on_focused_keyboard_input(
     mut query: Query<(&TextInputNode, &mut TextInputActionsQueue)>,
     mut global_state: ResMut<TextInputGlobalState>,
 ) {
-    info!("Focused keyboard input: {:?}", trigger.event());
     if let Ok((input, mut queue)) = query.get_mut(trigger.target()) {
         let TextInputGlobalState {
             shift,
@@ -669,7 +665,6 @@ pub fn on_focused_keyboard_input(
             command,
             &trigger.event().input,
             |action| {
-                info!("Queued action: {:?}", action);
                 queue.add(action);
             },
         );
