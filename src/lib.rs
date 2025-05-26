@@ -1,8 +1,12 @@
+pub mod actions;
 pub mod clipboard;
 pub mod edit;
 pub mod render;
 pub mod text_input_pipeline;
 
+use std::collections::VecDeque;
+
+use actions::TextInputAction;
 use bevy::app::{Plugin, PostUpdate};
 use bevy::asset::AssetEvents;
 use bevy::color::Color;
@@ -13,8 +17,8 @@ use bevy::ecs::entity::Entity;
 use bevy::ecs::event::Event;
 use bevy::ecs::observer::Observer;
 use bevy::ecs::query::Changed;
+use bevy::ecs::resource::Resource;
 use bevy::ecs::schedule::IntoScheduleConfigs;
-use bevy::ecs::schedule::common_conditions::resource_changed;
 use bevy::ecs::system::Query;
 use bevy::ecs::world::DeferredWorld;
 use bevy::input_focus::InputFocus;
@@ -27,9 +31,9 @@ use bevy::text::cosmic_text::{Align, Buffer, Change, Edit, Editor, Metrics, Wrap
 use bevy::text::{GlyphAtlasInfo, TextFont};
 use bevy::ui::{Node, RenderUiSystem, UiSystem, extract_text_sections};
 use edit::{
-    clear_selection_on_focus_change, mouse_wheel_scroll, on_drag_text_input,
+    cursor_blink_system, mouse_wheel_scroll, on_drag_text_input, on_focused_keyboard_input,
     on_move_clear_multi_click, on_multi_click_set_selection, on_text_input_pressed,
-    text_input_edit_system,
+    process_text_input_actions_queue,
 };
 use once_cell::sync::Lazy;
 use regex::Regex;
@@ -44,8 +48,9 @@ pub struct TextInputPlugin;
 impl Plugin for TextInputPlugin {
     fn build(&self, app: &mut bevy::app::App) {
         app.add_event::<TextSubmissionEvent>()
+            .add_plugins(bevy::input_focus::InputDispatchPlugin)
             .add_event::<SubmitTextEvent>()
-            .init_resource::<InputFocus>()
+            .init_resource::<TextInputGlobalState>()
             .init_resource::<TextInputPipeline>()
             .init_resource::<clipboard::Clipboard>()
             .add_systems(
@@ -53,12 +58,12 @@ impl Plugin for TextInputPlugin {
                 (
                     remove_dropped_font_atlas_sets_from_text_input_pipeline.before(AssetEvents),
                     (
+                        cursor_blink_system,
                         mouse_wheel_scroll,
-                        text_input_edit_system,
+                        process_text_input_actions_queue,
                         update_text_input_contents,
                         text_input_system,
                         text_input_prompt_system,
-                        clear_selection_on_focus_change.run_if(resource_changed::<InputFocus>),
                     )
                         .chain()
                         .in_set(UiSystem::PostLayout),
@@ -86,7 +91,8 @@ impl Plugin for TextInputPlugin {
     TextFont,
     TextInputLayoutInfo,
     TextInputStyle,
-    TextColor
+    TextColor,
+    TextInputActionsQueue
 )]
 #[component(
     on_add = on_add_textinputnode,
@@ -136,6 +142,7 @@ fn on_add_textinputnode(mut world: DeferredWorld, context: HookContext) {
         Observer::new(on_text_input_pressed),
         Observer::new(on_multi_click_set_selection),
         Observer::new(on_move_clear_multi_click),
+        Observer::new(on_focused_keyboard_input),
     ] {
         observer.watch_entity(context.entity);
         world.commands().spawn(observer);
@@ -250,27 +257,15 @@ impl TextInputMode {
 
 #[derive(Component, Debug)]
 pub struct TextInputBuffer {
-    set_text: Option<String>,
     pub editor: Editor<'static>,
     pub(crate) selection_rects: Vec<Rect>,
     pub(crate) cursor_blink_time: f32,
-    pub(crate) overwrite_mode: bool,
     pub(crate) needs_update: bool,
     pub(crate) prompt_buffer: Option<Buffer>,
     pub(crate) changes: cosmic_undo_2::Commands<Change>,
 }
 
 impl TextInputBuffer {
-    /// set the text for the input, overwriting any existing contents.
-    pub fn set_text(&mut self, text: String) {
-        self.set_text = Some(text);
-    }
-
-    /// clear the input
-    pub fn clear(&mut self) {
-        self.set_text(String::new());
-    }
-
     pub fn get_text(&self) -> String {
         self.editor.with_buffer(get_text)
     }
@@ -279,11 +274,9 @@ impl TextInputBuffer {
 impl Default for TextInputBuffer {
     fn default() -> Self {
         Self {
-            set_text: None,
             editor: Editor::new(Buffer::new_empty(Metrics::new(20.0, 20.0))),
             selection_rects: vec![],
             cursor_blink_time: 0.,
-            overwrite_mode: false,
             needs_update: true,
             prompt_buffer: None,
             changes: cosmic_undo_2::Commands::default(),
@@ -418,5 +411,31 @@ pub fn update_text_input_contents(
         if contents.text != text {
             contents.text = text;
         }
+    }
+}
+
+#[derive(Resource, Default)]
+pub struct TextInputGlobalState {
+    pub shift: bool,
+    pub command: bool,
+    pub overwrite_mode: bool,
+}
+
+#[derive(Component, Default, Debug)]
+pub struct TextInputActionsQueue {
+    pub actions: VecDeque<TextInputAction>,
+}
+
+impl TextInputActionsQueue {
+    pub fn add(&mut self, action: TextInputAction) {
+        self.actions.push_back(action);
+    }
+
+    pub fn next(&mut self) -> Option<TextInputAction> {
+        self.actions.pop_front()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.actions.is_empty()
     }
 }

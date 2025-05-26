@@ -29,7 +29,7 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
     let mut map = InputMap::default();
 
     let filters = [
-        (None, "text)"),
+        (None, "text"),
         (Some(TextInputFilter::Integer), "integer"),
         (Some(TextInputFilter::Decimal), "decimal"),
         (Some(TextInputFilter::Hex), "hex"),

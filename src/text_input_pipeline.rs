@@ -126,14 +126,8 @@ pub fn text_input_system(
     for (node, text_font, text_input_layout_info, mut editor, input) in text_query.iter_mut() {
         let layout_info = text_input_layout_info.into_inner();
         let y_axis_orientation = YAxisOrientation::TopToBottom;
-        if editor.needs_update
-            || editor.set_text.is_some()
-            || text_font.is_changed()
-            || node.is_changed()
-            || input.is_changed()
+        if editor.needs_update || text_font.is_changed() || node.is_changed() || input.is_changed()
         {
-            let text = editor.set_text.take().unwrap_or_else(|| editor.get_text());
-
             let bounds = TextBounds {
                 width: Some(node.size().x),
                 height: Some(node.size().y),
@@ -175,6 +169,7 @@ pub fn text_input_system(
                     .weight(face_info.weight)
                     .metrics(metrics);
 
+                let text = crate::get_text(buffer);
                 buffer.set_text(font_system, &text, attrs, cosmic_text::Shaping::Advanced);
                 for buffer_line in buffer.lines.iter_mut() {
                     buffer_line.set_align(input.alignment);
@@ -183,11 +178,12 @@ pub fn text_input_system(
                 Ok(())
             });
 
-            editor.needs_update = result.is_err();
-            if result.is_err() {
-                editor.set_text = Some(text);
-            } else {
+            if result.is_ok() {
+                editor.needs_update = false;
                 editor.editor.set_redraw(true);
+            } else {
+                editor.needs_update = true;
+                continue;
             }
         }
 

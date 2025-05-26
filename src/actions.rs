@@ -1,0 +1,194 @@
+use bevy::text::cosmic_text::Action;
+use bevy::text::cosmic_text::BorrowedWithFontSystem;
+use bevy::text::cosmic_text::Edit;
+use bevy::text::cosmic_text::Editor;
+use bevy::text::cosmic_text::Motion;
+use bevy::text::cosmic_text::Selection;
+
+use crate::TextInputFilter;
+use crate::clipboard::ClipboardRead;
+use crate::edit::apply_action;
+use crate::edit::apply_motion;
+use crate::edit::buffer_len;
+use crate::edit::cursor_at_line_end;
+
+#[derive(Debug)]
+pub enum TextInputAction {
+    Submit,
+    Cut,
+    Copy,
+    Paste,
+    PasteDeferred(ClipboardRead),
+    Edit(TextInputEdit),
+}
+
+/// An action to perform on a [`TextInputEditor`]
+#[derive(Debug)]
+pub enum TextInputEdit {
+    /// Move the cursor with some motion
+    Motion(Motion, bool),
+    /// Escape, clears selection
+    Escape,
+    /// Insert character at cursor
+    Insert(char, bool),
+    /// Create new line
+    Enter,
+    /// Delete text behind cursor
+    Backspace,
+    /// Delete text in front of cursor
+    Delete,
+    // Indent text (typically Tab)
+    Indent,
+    // Unindent text (typically Shift+Tab)
+    Unindent,
+    /// Mouse click at specified position
+    Click {
+        x: i32,
+        y: i32,
+    },
+    /// Mouse double click at specified position
+    DoubleClick {
+        x: i32,
+        y: i32,
+    },
+    /// Mouse triple click at specified position
+    TripleClick {
+        x: i32,
+        y: i32,
+    },
+    /// Mouse drag to specified position
+    Drag {
+        x: i32,
+        y: i32,
+    },
+    /// Scroll specified number of lines
+    Scroll {
+        lines: i32,
+    },
+    Paste(String),
+    Undo,
+    Redo,
+    SelectAll,
+    ScrollUp {
+        lines: i32,
+    },
+    ScrollDown {
+        lines: i32,
+    },
+}
+
+pub fn apply_text_input_edit(
+    edit: TextInputEdit,
+    editor: &mut BorrowedWithFontSystem<'_, Editor<'static>>,
+    changes: &mut cosmic_undo_2::Commands<bevy::text::cosmic_text::Change>,
+    max_chars: Option<usize>,
+    filter_mode: &Option<TextInputFilter>,
+) {
+    editor.start_change();
+
+    match edit {
+        TextInputEdit::Motion(motion, with_select) => {
+            apply_motion(editor, with_select, motion);
+        }
+        TextInputEdit::Escape => {
+            editor.action(Action::Escape);
+        }
+        TextInputEdit::Insert(ch, overwrite) => {
+            if editor.selection() != Selection::None {
+                editor.action(Action::Insert(ch));
+            } else if overwrite && !cursor_at_line_end(editor) {
+                editor.action(Action::Delete);
+                editor.action(Action::Insert(ch));
+            } else if max_chars.is_none_or(|max_chars| editor.with_buffer(buffer_len) < max_chars) {
+                editor.action(Action::Insert(ch));
+            }
+        }
+        TextInputEdit::Backspace => {
+            if editor.delete_selection() {
+                editor.set_redraw(true);
+            } else {
+                editor.action(Action::Backspace);
+            }
+        }
+        TextInputEdit::Delete => {
+            if editor.delete_selection() {
+                editor.set_redraw(true);
+            } else {
+                editor.action(Action::Delete);
+            }
+        }
+        TextInputEdit::Indent => {
+            editor.action(Action::Indent);
+        }
+        TextInputEdit::Unindent => {
+            editor.action(Action::Indent);
+        }
+        TextInputEdit::Click { x, y } => {
+            editor.action(Action::Click { x, y });
+        }
+        TextInputEdit::DoubleClick { x, y } => {
+            editor.action(Action::DoubleClick { x, y });
+        }
+        TextInputEdit::TripleClick { x, y } => {
+            editor.action(Action::DoubleClick { x, y });
+        }
+        TextInputEdit::Drag { x, y } => {
+            editor.action(Action::Drag { x, y });
+        }
+        TextInputEdit::Scroll { lines } => {
+            editor.action(Action::Scroll { lines });
+        }
+        TextInputEdit::Paste(text) => {
+            if max_chars.is_none_or(|max| editor.with_buffer(buffer_len) + text.len() <= max) {
+                editor.insert_string(&text, None);
+            }
+        }
+        TextInputEdit::Undo => {
+            for action in changes.undo() {
+                apply_action(editor, action);
+                editor.set_redraw(true);
+            }
+        }
+        TextInputEdit::Redo => {
+            for action in changes.redo() {
+                apply_action(editor, action);
+                editor.set_redraw(true);
+            }
+        }
+        TextInputEdit::SelectAll => {
+            editor.action(Action::Motion(Motion::BufferStart));
+            let cursor = editor.cursor();
+            editor.set_selection(Selection::Normal(cursor));
+            editor.action(Action::Motion(Motion::BufferEnd));
+        }
+        TextInputEdit::ScrollUp { lines } => {
+            editor.action(Action::Scroll { lines });
+        }
+        TextInputEdit::ScrollDown { lines } => {
+            editor.action(Action::Scroll { lines });
+        }
+        TextInputEdit::Enter => {
+            editor.action(Action::Enter);
+        }
+    }
+
+    let Some(mut change) = editor.finish_change() else {
+        return;
+    };
+
+    if change.items.is_empty() {
+        return;
+    }
+
+    if let Some(filter_mode) = filter_mode {
+        let text = editor.with_buffer(crate::get_text);
+        if !filter_mode.is_match(&text) {
+            change.reverse();
+            editor.apply_change(&change);
+            return;
+        }
+    }
+
+    changes.push(change);
+    editor.set_redraw(true);
+}
