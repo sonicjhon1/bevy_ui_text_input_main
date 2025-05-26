@@ -562,14 +562,7 @@ pub fn process_text_input_actions_queue(
 
     for (entity, node, mut buffer, mut actions_queue) in query.iter_mut() {
         let TextInputBuffer {
-            editor,
-            changes,
-            // set_text: _,
-            // selection_rects: _,
-            // cursor_blink_time: _,
-            // needs_update,
-            // prompt_buffer: _,
-            ..
+            editor, changes, ..
         } = &mut *buffer;
         let mut editor = editor.borrow_with(&mut font_system);
         while let Some(action) = actions_queue.next() {
@@ -577,6 +570,10 @@ pub fn process_text_input_actions_queue(
                 TextInputAction::Submit => {
                     let text = editor.with_buffer(crate::get_text);
                     submit_writer.write(TextSubmissionEvent { entity, text });
+                    if node.clear_on_submit {
+                        actions_queue.add(TextInputAction::Edit(TextInputEdit::SelectAll));
+                        actions_queue.add(TextInputAction::Edit(TextInputEdit::Delete));
+                    }
                 }
                 TextInputAction::Cut => {
                     if let Some(text) = editor.copy_selection() {
