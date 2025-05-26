@@ -218,7 +218,7 @@ pub fn mouse_wheel_scroll(
                 match mouse_wheel_event.unit {
                     MouseScrollUnit::Line => {
                         queue.add(TextInputAction::Edit(TextInputEdit::Scroll {
-                            lines: mouse_wheel_event.y as i32,
+                            lines: -mouse_wheel_event.y as i32,
                         }));
                     }
                     MouseScrollUnit::Pixel => {
