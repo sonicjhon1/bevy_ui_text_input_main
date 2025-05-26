@@ -19,7 +19,6 @@ use bevy::ecs::observer::Observer;
 use bevy::ecs::query::Changed;
 use bevy::ecs::resource::Resource;
 use bevy::ecs::schedule::IntoScheduleConfigs;
-use bevy::ecs::schedule::common_conditions::resource_changed;
 use bevy::ecs::system::Query;
 use bevy::ecs::world::DeferredWorld;
 use bevy::input_focus::InputFocus;
@@ -32,9 +31,8 @@ use bevy::text::cosmic_text::{Align, Buffer, Change, Edit, Editor, Metrics, Wrap
 use bevy::text::{GlyphAtlasInfo, TextFont};
 use bevy::ui::{Node, RenderUiSystem, UiSystem, extract_text_sections};
 use edit::{
-    clear_selection_on_focus_change, mouse_wheel_scroll, on_drag_text_input,
-    on_focused_keyboard_input, on_move_clear_multi_click, on_multi_click_set_selection,
-    on_text_input_pressed, text_input_edit_system,
+    cursor_blink_system, mouse_wheel_scroll, on_drag_text_input, on_focused_keyboard_input,
+    on_move_clear_multi_click, on_multi_click_set_selection, on_text_input_pressed,
 };
 use once_cell::sync::Lazy;
 use regex::Regex;
@@ -59,12 +57,11 @@ impl Plugin for TextInputPlugin {
                 (
                     remove_dropped_font_atlas_sets_from_text_input_pipeline.before(AssetEvents),
                     (
+                        cursor_blink_system,
                         mouse_wheel_scroll,
-                        text_input_edit_system,
                         update_text_input_contents,
                         text_input_system,
                         text_input_prompt_system,
-                        clear_selection_on_focus_change.run_if(resource_changed::<InputFocus>),
                     )
                         .chain()
                         .in_set(UiSystem::PostLayout),
@@ -289,7 +286,6 @@ impl Default for TextInputBuffer {
             editor: Editor::new(Buffer::new_empty(Metrics::new(20.0, 20.0))),
             selection_rects: vec![],
             cursor_blink_time: 0.,
-            overwrite_mode: false,
             needs_update: true,
             prompt_buffer: None,
             changes: cosmic_undo_2::Commands::default(),

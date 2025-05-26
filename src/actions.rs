@@ -1,13 +1,9 @@
-use arboard::Clipboard;
-use bevy::ecs::entity::Entity;
-use bevy::ecs::resource::Resource;
 use bevy::text::cosmic_text::Action;
 use bevy::text::cosmic_text::BorrowedWithFontSystem;
 use bevy::text::cosmic_text::Edit;
 use bevy::text::cosmic_text::Editor;
 use bevy::text::cosmic_text::Motion;
 use bevy::text::cosmic_text::Selection;
-use std::collections::VecDeque;
 
 use crate::TextInputFilter;
 use crate::clipboard::ClipboardRead;
@@ -73,8 +69,13 @@ pub enum TextInputEdit {
     Undo,
     Redo,
     SelectAll,
-    ScrollUp,
-    ScrollDown,
+    ScrollUp {
+        lines: i32,
+    },
+    ScrollDown {
+        lines: i32,
+    },
+    ClearSelection,
 }
 
 pub fn apply_text_input_edit(
@@ -167,14 +168,17 @@ pub fn apply_text_input_edit(
             editor.set_selection(Selection::Normal(cursor));
             editor.action(Action::Motion(Motion::BufferEnd));
         }
-        TextInputEdit::ScrollUp => {
-            editor.action(Action::Scroll { lines: -1 });
+        TextInputEdit::ScrollUp { lines } => {
+            editor.action(Action::Scroll { lines });
         }
-        TextInputEdit::ScrollDown => {
-            editor.action(Action::Scroll { lines: 1 });
+        TextInputEdit::ScrollDown { lines } => {
+            editor.action(Action::Scroll { lines });
         }
         TextInputEdit::Enter => {
             editor.action(Action::Enter);
+        }
+        TextInputEdit::ClearSelection => {
+            editor.set_selection(Selection::None);
         }
     }
 
