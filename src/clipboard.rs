@@ -4,7 +4,7 @@ extern crate alloc;
 use bevy::ecs::resource::Resource;
 
 #[cfg(target_arch = "wasm32")]
-use {alloc::sync::Arc, bevy_platform::sync::Mutex, wasm_bindgen_futures::JsFuture};
+use {alloc::sync::Arc, bevy::platform::sync::Mutex, wasm_bindgen_futures::JsFuture};
 
 /// Represents an attempt to read from the clipboard.
 ///
