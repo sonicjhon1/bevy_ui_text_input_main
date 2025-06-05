@@ -563,8 +563,8 @@ pub fn process_text_edit_queues(
                     let text = editor.with_buffer(crate::get_text);
                     submit_writer.write(TextSubmissionEvent { entity, text });
                     if node.clear_on_submit {
-                        actions_queue.add(TextInputAction::Edit(TextInputEdit::SelectAll));
-                        actions_queue.add(TextInputAction::Edit(TextInputEdit::Delete));
+                        actions_queue.add_front(TextInputAction::Edit(TextInputEdit::Delete));
+                        actions_queue.add_front(TextInputAction::Edit(TextInputEdit::SelectAll));
                     }
                 }
                 TextInputAction::Cut => {
@@ -585,7 +585,7 @@ pub fn process_text_edit_queues(
                     }
                 }
                 TextInputAction::Paste => {
-                    actions_queue.add(TextInputAction::PasteDeferred(clipboard.fetch_text()));
+                    actions_queue.add_front(TextInputAction::PasteDeferred(clipboard.fetch_text()));
                 }
                 TextInputAction::PasteDeferred(mut clipboard_read) => {
                     if let Some(text) = clipboard_read.poll_result() {
@@ -599,8 +599,9 @@ pub fn process_text_edit_queues(
                             );
                         }
                     } else {
-                        // Add the clipboard read back to the queue, process the remaining actions next frame.
-                        actions_queue.add(TextInputAction::PasteDeferred(clipboard_read));
+                        // Add the clipboard read back to the queue, process it and the remaining actions next frame.
+                        actions_queue.add_front(TextInputAction::PasteDeferred(clipboard_read));
+                        break;
                     }
                 }
                 TextInputAction::Edit(text_input_edit) => {
