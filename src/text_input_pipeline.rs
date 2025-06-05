@@ -423,6 +423,12 @@ pub fn text_input_prompt_system(
                 cosmic_text::Shaping::Advanced,
             );
 
+            for buffer_line in buffer.lines.iter_mut() {
+                buffer_line.set_align(input.alignment);
+            }
+
+            buffer.shape_until_scroll(font_system, false);
+
             let box_size = buffer_dimensions(buffer);
             let result = buffer.layout_runs().try_for_each(|run| {
                 let result = run
