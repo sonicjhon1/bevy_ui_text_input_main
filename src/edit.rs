@@ -1,4 +1,4 @@
-use crate::TextInputActionsQueue;
+use crate::TextEditQueue;
 use crate::TextInputBuffer;
 use crate::TextInputGlobalState;
 use crate::TextInputMode;
@@ -198,11 +198,7 @@ pub(crate) fn on_text_input_pressed(
 pub fn mouse_wheel_scroll(
     mut mouse_wheel_events: EventReader<MouseWheel>,
     hover_map: Res<HoverMap>,
-    mut node_query: Query<(
-        &mut TextInputBuffer,
-        &TextInputNode,
-        &mut TextInputActionsQueue,
-    )>,
+    mut node_query: Query<(&mut TextInputBuffer, &TextInputNode, &mut TextEditQueue)>,
 ) {
     for mouse_wheel_event in mouse_wheel_events.read() {
         for (_, pointer_map) in hover_map.iter() {
@@ -247,7 +243,7 @@ pub fn on_multi_click_set_selection(
     time: Res<Time>,
     mut text_input_nodes: Query<(
         &TextInputNode,
-        &mut TextInputActionsQueue,
+        &mut TextEditQueue,
         &mut TextInputBuffer,
         &GlobalTransform,
         &ComputedNode,
@@ -531,11 +527,7 @@ pub fn queue_text_input_action(
 
 /// updates the cursor blink time for text inputs
 pub fn cursor_blink_system(
-    mut query: Query<(
-        &mut TextInputBuffer,
-        &TextInputStyle,
-        &TextInputActionsQueue,
-    )>,
+    mut query: Query<(&mut TextInputBuffer, &TextInputStyle, &TextEditQueue)>,
     time: Res<Time>,
 ) {
     for (mut buffer, style, queue) in query.iter_mut() {
@@ -552,7 +544,7 @@ pub fn process_text_input_actions_queue(
         Entity,
         &TextInputNode,
         &mut TextInputBuffer,
-        &mut TextInputActionsQueue,
+        &mut TextEditQueue,
     )>,
     mut text_input_pipeline: ResMut<TextInputPipeline>,
     mut submit_writer: EventWriter<TextSubmissionEvent>,
@@ -627,7 +619,7 @@ pub fn process_text_input_actions_queue(
 
 pub fn on_focused_keyboard_input(
     trigger: Trigger<FocusedInput<KeyboardInput>>,
-    mut query: Query<(&TextInputNode, &mut TextInputActionsQueue)>,
+    mut query: Query<(&TextInputNode, &mut TextEditQueue)>,
     mut global_state: ResMut<TextInputGlobalState>,
 ) {
     if let Ok((input, mut queue)) = query.get_mut(trigger.target()) {

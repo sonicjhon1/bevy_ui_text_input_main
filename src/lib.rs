@@ -92,7 +92,7 @@ impl Plugin for TextInputPlugin {
     TextInputLayoutInfo,
     TextInputStyle,
     TextColor,
-    TextInputActionsQueue
+    TextEditQueue
 )]
 #[component(
     on_add = on_add_textinputnode,
@@ -422,11 +422,11 @@ pub struct TextInputGlobalState {
 }
 
 #[derive(Component, Default, Debug)]
-pub struct TextInputActionsQueue {
+pub struct TextEditQueue {
     pub actions: VecDeque<TextInputAction>,
 }
 
-impl TextInputActionsQueue {
+impl TextEditQueue {
     pub fn add(&mut self, action: TextInputAction) {
         self.actions.push_back(action);
     }
