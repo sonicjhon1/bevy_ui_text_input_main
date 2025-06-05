@@ -12,17 +12,24 @@ use crate::edit::apply_motion;
 use crate::edit::buffer_len;
 use crate::edit::cursor_at_line_end;
 
+/// Actions that can be recieved by a text input
 #[derive(Debug)]
 pub enum TextInputAction {
+    /// Submit Text
     Submit,
-    Cut,
+    /// Send currently selected text to the clipboard
     Copy,
+    /// Send currently selected text to the clipboard, then delete it
+    Cut,
+    /// Retrieve text from the clipboard and then queue
     Paste,
+    /// Paste text from the clipboard
     PasteDeferred(ClipboardRead),
+    /// A single edit action
     Edit(TextInputEdit),
 }
 
-/// An action to perform on a [`TextInputEditor`]
+/// An edit to perform on a [`TextInputBuffer`](crate::TextInputBuffer)
 #[derive(Debug)]
 pub enum TextInputEdit {
     /// Move the cursor with some motion
@@ -71,6 +78,7 @@ pub enum TextInputEdit {
     SelectAll,
 }
 
+/// apply a single `TextInputEdit` to a text editor buffer
 pub fn apply_text_input_edit(
     edit: TextInputEdit,
     editor: &mut BorrowedWithFontSystem<'_, Editor<'static>>,
