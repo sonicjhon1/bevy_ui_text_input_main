@@ -189,7 +189,7 @@ pub fn text_input_system(
 
         editor
             .editor
-            .shape_as_needed(&mut text_input_pipeline.font_system, true);
+            .shape_as_needed(&mut text_input_pipeline.font_system, false);
 
         let selection = editor.editor.selection_bounds();
         let TextInputBuffer {
