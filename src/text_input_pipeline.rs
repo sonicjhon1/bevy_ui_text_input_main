@@ -171,8 +171,9 @@ pub fn text_input_system(
 
                 let text = crate::get_text(buffer);
                 buffer.set_text(font_system, &text, attrs, cosmic_text::Shaping::Advanced);
+                let align = Some(input.justification.into());
                 for buffer_line in buffer.lines.iter_mut() {
-                    buffer_line.set_align(input.alignment);
+                    buffer_line.set_align(align);
                 }
 
                 Ok(())
@@ -423,8 +424,9 @@ pub fn text_input_prompt_system(
                 cosmic_text::Shaping::Advanced,
             );
 
+            let align = Some(input.justification.into());
             for buffer_line in buffer.lines.iter_mut() {
-                buffer_line.set_align(input.alignment);
+                buffer_line.set_align(align);
             }
 
             buffer.shape_until_scroll(font_system, false);

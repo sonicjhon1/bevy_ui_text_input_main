@@ -3,11 +3,10 @@
 use bevy::{
     color::palettes::css::{LIGHT_GOLDENROD_YELLOW, MAROON, RED},
     prelude::*,
-    text::cosmic_text::Align,
 };
 use bevy_ui_text_input::{
-    SubmitTextEvent, TextInputBuffer, TextInputMode, TextInputNode, TextInputPlugin,
-    TextInputPrompt, TextInputStyle, TextSubmissionEvent,
+    TextEditQueue, TextInputBuffer, TextInputMode, TextInputNode, TextInputPlugin, TextInputPrompt,
+    TextInputStyle, TextSubmitEvent, actions::TextInputAction,
 };
 
 fn main() {
@@ -102,8 +101,8 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
         ))
         .with_child(Text::new("Submit"))
         .observe(
-            move |_: Trigger<Pointer<Click>>, mut submit_writer: EventWriter<SubmitTextEvent>| {
-                submit_writer.write(SubmitTextEvent { entity: editor });
+            move |_: Trigger<Pointer<Click>>, mut query: Query<&mut TextEditQueue>| {
+                query.get_mut(editor).unwrap().add(TextInputAction::Submit);
             },
         )
         .id();
@@ -326,15 +325,11 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
                             .observe(
                                 move |_: Trigger<Pointer<Click>>, mut query: Query<&mut TextInputNode>| {
                                     if let Ok(mut input) = query.get_mut(editor) {
-                                        input.alignment = match input.alignment {
-                                            Some(align) => match align {
-                                                Align::Left => Some(Align::Right),
-                                                Align::Right => Some(Align::Center),
-                                                Align::Center => Some(Align::Justified),
-                                                Align::Justified => Some(Align::End),
-                                                Align::End => None,
-                                            },
-                                            None => Some(Align::Left),
+                                        input.justification = match input.justification {
+                                            JustifyText::Left => JustifyText::Center,
+                                            JustifyText::Center => JustifyText::Right,
+                                            JustifyText::Right => JustifyText::Justified,
+                                            JustifyText::Justified => JustifyText::Left,
                                         }
                                     }
                                 },
@@ -424,7 +419,7 @@ fn button_system(
 }
 
 fn submit(
-    mut events: EventReader<TextSubmissionEvent>,
+    mut events: EventReader<TextSubmitEvent>,
     mut query: Query<&mut Text, With<OutputMarker>>,
 ) {
     for event in events.read() {

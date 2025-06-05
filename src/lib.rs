@@ -26,9 +26,9 @@ use bevy::math::{Rect, Vec2};
 use bevy::prelude::ReflectComponent;
 use bevy::reflect::{Reflect, std_traits::ReflectDefault};
 use bevy::render::{ExtractSchedule, RenderApp};
-use bevy::text::TextColor;
-use bevy::text::cosmic_text::{Align, Buffer, Change, Edit, Editor, Metrics, Wrap};
+use bevy::text::cosmic_text::{Buffer, Change, Edit, Editor, Metrics, Wrap};
 use bevy::text::{GlyphAtlasInfo, TextFont};
+use bevy::text::{JustifyText, TextColor};
 use bevy::ui::{Node, RenderUiSystem, UiSystem, extract_text_sections};
 use edit::{
     cursor_blink_system, mouse_wheel_scroll, on_drag_text_input, on_focused_keyboard_input,
@@ -47,9 +47,8 @@ pub struct TextInputPlugin;
 
 impl Plugin for TextInputPlugin {
     fn build(&self, app: &mut bevy::app::App) {
-        app.add_event::<TextSubmissionEvent>()
+        app.add_event::<TextSubmitEvent>()
             .add_plugins(bevy::input_focus::InputDispatchPlugin)
-            .add_event::<SubmitTextEvent>()
             .init_resource::<TextInputGlobalState>()
             .init_resource::<TextInputPipeline>()
             .init_resource::<clipboard::Clipboard>()
@@ -116,8 +115,8 @@ pub struct TextInputNode {
     pub focus_on_pointer_down: bool,
     /// Deactivate after text submitted
     pub unfocus_on_submit: bool,
-    /// Text alignment
-    pub alignment: Option<Align>,
+    /// Text justification
+    pub justification: JustifyText,
 }
 
 impl Default for TextInputNode {
@@ -131,7 +130,7 @@ impl Default for TextInputNode {
             is_enabled: true,
             focus_on_pointer_down: true,
             unfocus_on_submit: true,
-            alignment: None,
+            justification: JustifyText::Left,
         }
     }
 }
@@ -158,18 +157,11 @@ fn on_remove_unfocus(mut world: DeferredWorld, context: HookContext) {
 
 /// Sent when a text input submits its text
 #[derive(Event)]
-pub struct TextSubmissionEvent {
+pub struct TextSubmitEvent {
     /// The text input entity that submitted the text
     pub entity: Entity,
     /// The submitted text
     pub text: String,
-}
-
-/// Send to submit the text input entity's text
-#[derive(Event)]
-pub struct SubmitTextEvent {
-    /// The text input entity that should submit its text
-    pub entity: Entity,
 }
 
 /// Mode of text input

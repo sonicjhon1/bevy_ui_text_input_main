@@ -4,7 +4,7 @@ use crate::TextInputGlobalState;
 use crate::TextInputMode;
 use crate::TextInputNode;
 use crate::TextInputStyle;
-use crate::TextSubmissionEvent;
+use crate::TextSubmitEvent;
 use crate::actions::TextInputAction;
 use crate::actions::TextInputEdit;
 use crate::actions::apply_text_input_edit;
@@ -547,7 +547,7 @@ pub fn process_text_edit_queues(
         &mut TextEditQueue,
     )>,
     mut text_input_pipeline: ResMut<TextInputPipeline>,
-    mut submit_writer: EventWriter<TextSubmissionEvent>,
+    mut submit_writer: EventWriter<TextSubmitEvent>,
     mut clipboard: ResMut<Clipboard>,
 ) {
     let mut font_system = &mut text_input_pipeline.font_system;
@@ -561,7 +561,7 @@ pub fn process_text_edit_queues(
             match action {
                 TextInputAction::Submit => {
                     let text = editor.with_buffer(crate::get_text);
-                    submit_writer.write(TextSubmissionEvent { entity, text });
+                    submit_writer.write(TextSubmitEvent { entity, text });
                     if node.clear_on_submit {
                         actions_queue.add_front(TextInputAction::Edit(TextInputEdit::Delete));
                         actions_queue.add_front(TextInputAction::Edit(TextInputEdit::SelectAll));

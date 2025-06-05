@@ -8,7 +8,7 @@ use bevy::{
 };
 use bevy_ui_text_input::{
     TextInputFilter, TextInputMode, TextInputNode, TextInputPlugin, TextInputPrompt,
-    TextSubmissionEvent,
+    TextSubmitEvent,
 };
 
 fn main() {
@@ -95,7 +95,7 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
 
 fn update(
     input_focus: Res<InputFocus>,
-    mut events: EventReader<TextSubmissionEvent>,
+    mut events: EventReader<TextSubmitEvent>,
     map: Res<InputMap>,
     mut text_query: Query<&mut Text>,
     mut outline_query: Query<(Entity, &mut Outline)>,
