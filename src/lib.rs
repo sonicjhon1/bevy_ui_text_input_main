@@ -33,7 +33,7 @@ use bevy::ui::{Node, RenderUiSystem, UiSystem, extract_text_sections};
 use edit::{
     cursor_blink_system, mouse_wheel_scroll, on_drag_text_input, on_focused_keyboard_input,
     on_move_clear_multi_click, on_multi_click_set_selection, on_text_input_pressed,
-    process_text_edit_queues,
+    process_text_input_queues,
 };
 use once_cell::sync::Lazy;
 use regex::Regex;
@@ -59,7 +59,7 @@ impl Plugin for TextInputPlugin {
                     (
                         cursor_blink_system,
                         mouse_wheel_scroll,
-                        process_text_edit_queues,
+                        process_text_input_queues,
                         update_text_input_contents,
                         text_input_system,
                         text_input_prompt_system,
@@ -91,7 +91,7 @@ impl Plugin for TextInputPlugin {
     TextInputLayoutInfo,
     TextInputStyle,
     TextColor,
-    TextEditQueue
+    TextInputQueue
 )]
 #[component(
     on_add = on_add_textinputnode,
@@ -416,14 +416,14 @@ pub struct TextInputGlobalState {
     pub overwrite_mode: bool,
 }
 
-/// Queued `TextInputActions` to be processed by `process_text_edit_queues` and applied to the `TextInputBuffer`
+/// Queued `TextInputActions` to be processed by `process_text_input_queues` and applied to the `TextInputBuffer`
 #[derive(Component, Default, Debug)]
-pub struct TextEditQueue {
+pub struct TextInputQueue {
     pub actions: VecDeque<TextInputAction>,
 }
 
-impl TextEditQueue {
-    /// Queue an action to be processed by `process_text_edit_queues`
+impl TextInputQueue {
+    /// Queue an action to be processed by `process_text_input_queues`
     pub fn add(&mut self, action: TextInputAction) {
         self.actions.push_back(action);
     }

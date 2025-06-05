@@ -5,7 +5,7 @@ use bevy::{
     prelude::*,
 };
 use bevy_ui_text_input::{
-    TextEditQueue, TextInputBuffer, TextInputMode, TextInputNode, TextInputPlugin, TextInputPrompt,
+    TextInputQueue, TextInputBuffer, TextInputMode, TextInputNode, TextInputPlugin, TextInputPrompt,
     TextInputStyle, TextSubmitEvent, actions::TextInputAction,
 };
 
@@ -101,7 +101,7 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
         ))
         .with_child(Text::new("Submit"))
         .observe(
-            move |_: Trigger<Pointer<Click>>, mut query: Query<&mut TextEditQueue>| {
+            move |_: Trigger<Pointer<Click>>, mut query: Query<&mut TextInputQueue>| {
                 query.get_mut(editor).unwrap().add(TextInputAction::Submit);
             },
         )
