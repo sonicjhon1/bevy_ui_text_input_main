@@ -416,25 +416,37 @@ pub fn update_text_input_contents(
 
 #[derive(Resource, Default)]
 pub struct TextInputGlobalState {
+    /// Shift is held down
     pub shift: bool,
+    /// Ctrl or Command key is held down
     pub command: bool,
+    /// If true typed glyphs overwrite the glyph at the current cursor position, instead of inserting before it.
     pub overwrite_mode: bool,
 }
 
+/// Queued `TextInputActions` to be processed by `process_text_edit_queues` and applied to the `TextInputBuffer`
 #[derive(Component, Default, Debug)]
 pub struct TextEditQueue {
     pub actions: VecDeque<TextInputAction>,
 }
 
 impl TextEditQueue {
+    /// Queue an action to be processed by `process_text_edit_queues`
     pub fn add(&mut self, action: TextInputAction) {
         self.actions.push_back(action);
     }
 
+    /// Add an action to the front of the queue
+    pub fn add_front(&mut self, action: TextInputAction) {
+        self.actions.push_front(action);
+    }
+
+    /// Get the next action
     pub fn next(&mut self) -> Option<TextInputAction> {
         self.actions.pop_front()
     }
 
+    /// True if the queue is empty
     pub fn is_empty(&self) -> bool {
         self.actions.is_empty()
     }
