@@ -539,7 +539,7 @@ pub fn cursor_blink_system(
     }
 }
 
-pub fn process_text_input_actions_queue(
+pub fn process_text_edit_queues(
     mut query: Query<(
         Entity,
         &TextInputNode,
