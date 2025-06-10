@@ -1,5 +1,8 @@
 ## Changelog
 
+### 0.5.2
+* Fixed cargo description text.
+
 ### 0.5.1
 * Fixed compilation errors on wasm (thanks to [fallible-algebra](https://github.com/fallible-algebra)).
 
