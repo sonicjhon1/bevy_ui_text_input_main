@@ -1,7 +1,10 @@
 ## Changelog
 
-### 0.5.0
+### 0.5.1
 * Fixed compilation errors on wasm (thanks to [fallible-algebra](https://github.com/fallible-algebra)).
+
+### 0.5.0
+* ~~Fixed compilation errors on wasm (thanks to [fallible-algebra](https://github.com/fallible-algebra)).~~
 * Text input prompts now respect their `TextInputNode`'s justification.
 * `TextInputNode`'s `align` field has been renamed to `justification` and its type has been changed to `JustifyText`.
 * New resource `TextInputGlobalState` that tracks overwrite mode and the state of the modifier keys.
