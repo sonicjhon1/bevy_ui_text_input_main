@@ -123,7 +123,7 @@ pub fn apply_text_input_edit(
             editor.action(Action::Indent);
         }
         TextInputEdit::Unindent => {
-            editor.action(Action::Indent);
+            editor.action(Action::Unindent);
         }
         TextInputEdit::Click { x, y } => {
             editor.action(Action::Click { x, y });
