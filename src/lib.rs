@@ -86,7 +86,7 @@ impl Plugin for TextInputPlugin {
     }
 }
 
-#[derive(Component, Debug)]
+#[derive(Component, Debug, Clone)]
 #[require(
     Node,
     TextInputBuffer,
