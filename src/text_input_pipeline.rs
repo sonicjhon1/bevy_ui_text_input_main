@@ -1,38 +1,26 @@
-use crate::TextInputBuffer;
-use crate::TextInputGlyph;
-use crate::TextInputLayoutInfo;
-use crate::TextInputNode;
-use crate::TextInputPrompt;
-use crate::TextInputPromptLayoutInfo;
-use bevy::asset::AssetEvent;
-use bevy::asset::AssetId;
-use bevy::asset::Assets;
-use bevy::ecs::change_detection::DetectChanges;
-use bevy::ecs::message::MessageReader;
-use bevy::ecs::resource::Resource;
-use bevy::ecs::system::Query;
-use bevy::ecs::system::Res;
-use bevy::ecs::system::ResMut;
-use bevy::ecs::world::Ref;
-use bevy::image::Image;
-use bevy::image::TextureAtlasLayout;
-use bevy::math::Rect;
-use bevy::math::UVec2;
-use bevy::math::Vec2;
-use bevy::platform::collections::HashMap;
-use bevy::text::Font;
-use bevy::text::FontAtlasSet;
-use bevy::text::FontSmoothing;
-use bevy::text::LineBreak;
-use bevy::text::LineHeight;
-use bevy::text::TextBounds;
-use bevy::text::TextError;
-use bevy::text::TextFont;
-use bevy::ui::ComputedNode;
-use cosmic_text;
-use cosmic_text::Buffer;
-use cosmic_text::Edit;
-use cosmic_text::Metrics;
+use crate::{
+    TextInputBuffer, TextInputGlyph, TextInputLayoutInfo, TextInputNode, TextInputPrompt,
+    TextInputPromptLayoutInfo,
+};
+use bevy::{
+    asset::{AssetEvent, AssetId, Assets},
+    ecs::{
+        change_detection::DetectChanges,
+        message::MessageReader,
+        resource::Resource,
+        system::{Query, Res, ResMut},
+        world::Ref,
+    },
+    image::{Image, TextureAtlasLayout},
+    math::{Rect, UVec2, Vec2},
+    platform::collections::HashMap,
+    text::{
+        Font, FontAtlasKey, FontAtlasSet, FontSmoothing, LineBreak, LineHeight, TextBounds,
+        TextError, TextFont, add_glyph_to_atlas, get_glyph_atlas_info,
+    },
+    ui::ComputedNode,
+};
+use cosmic_text::{self, Buffer, Edit, Metrics};
 use std::sync::Arc;
 
 #[derive(Resource)]
@@ -40,7 +28,6 @@ pub struct TextInputPipeline {
     pub(crate) handle_to_font_id_map: HashMap<AssetId<Font>, (cosmic_text::fontdb::ID, Arc<str>)>,
     pub font_system: cosmic_text::FontSystem,
     pub(crate) swash_cache: cosmic_text::SwashCache,
-    pub(crate) font_atlas_sets: HashMap<AssetId<Font>, FontAtlasSet>,
 }
 
 impl Default for TextInputPipeline {
@@ -51,7 +38,6 @@ impl Default for TextInputPipeline {
             handle_to_font_id_map: Default::default(),
             font_system: cosmic_text::FontSystem::new_with_locale_and_db(locale, db),
             swash_cache: cosmic_text::SwashCache::new(),
-            font_atlas_sets: Default::default(),
         }
     }
 }
@@ -114,6 +100,7 @@ pub fn text_input_system(
     fonts: Res<Assets<Font>>,
     mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
     mut text_input_pipeline: ResMut<TextInputPipeline>,
+    mut font_atlas_set: ResMut<FontAtlasSet>,
     mut text_query: Query<(
         Ref<ComputedNode>,
         Ref<TextFont>,
@@ -243,27 +230,33 @@ pub fn text_input_system(
                             let TextInputPipeline {
                                 font_system,
                                 swash_cache,
-                                font_atlas_sets,
                                 ..
                             } = &mut *text_input_pipeline;
 
-                            let font_atlas_set = font_atlas_sets.entry(font_id).or_default();
-
                             let physical_glyph = layout_glyph.physical((0., 0.), 1.);
 
-                            let atlas_info = font_atlas_set
-                                .get_glyph_atlas_info(physical_glyph.cache_key, font_smoothing)
-                                .map(Ok)
-                                .unwrap_or_else(|| {
-                                    font_atlas_set.add_glyph_to_atlas(
-                                        &mut texture_atlases,
-                                        &mut textures,
-                                        font_system,
-                                        swash_cache,
-                                        layout_glyph,
-                                        font_smoothing,
-                                    )
-                                })?;
+                            let font_atlases = font_atlas_set
+                                .entry(FontAtlasKey(
+                                    font_id,
+                                    physical_glyph.cache_key.font_size_bits,
+                                    font_smoothing,
+                                ))
+                                .or_default();
+
+                            let atlas_info =
+                                get_glyph_atlas_info(font_atlases, physical_glyph.cache_key)
+                                    .map(Ok)
+                                    .unwrap_or_else(|| {
+                                        add_glyph_to_atlas(
+                                            font_atlases,
+                                            &mut texture_atlases,
+                                            &mut textures,
+                                            font_system,
+                                            swash_cache,
+                                            layout_glyph,
+                                            font_smoothing,
+                                        )
+                                    })?;
 
                             let texture_atlas =
                                 texture_atlases.get(atlas_info.texture_atlas).unwrap();
@@ -323,6 +316,7 @@ pub fn text_input_prompt_system(
     fonts: Res<Assets<Font>>,
     mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
     mut text_input_pipeline: ResMut<TextInputPipeline>,
+    mut font_atlas_set: ResMut<FontAtlasSet>,
     mut text_query: Query<(
         Ref<ComputedNode>,
         Ref<TextFont>,
@@ -451,27 +445,33 @@ pub fn text_input_prompt_system(
                         let TextInputPipeline {
                             font_system,
                             swash_cache,
-                            font_atlas_sets,
                             ..
                         } = &mut *text_input_pipeline;
 
-                        let font_atlas_set = font_atlas_sets.entry(font_id).or_default();
-
                         let physical_glyph = layout_glyph.physical((0., 0.), 1.);
 
-                        let atlas_info = font_atlas_set
-                            .get_glyph_atlas_info(physical_glyph.cache_key, font_smoothing)
-                            .map(Ok)
-                            .unwrap_or_else(|| {
-                                font_atlas_set.add_glyph_to_atlas(
-                                    &mut texture_atlases,
-                                    &mut textures,
-                                    font_system,
-                                    swash_cache,
-                                    layout_glyph,
-                                    font_smoothing,
-                                )
-                            })?;
+                        let font_atlases = font_atlas_set
+                            .entry(FontAtlasKey(
+                                font_id,
+                                physical_glyph.cache_key.font_size_bits,
+                                font_smoothing,
+                            ))
+                            .or_default();
+
+                        let atlas_info =
+                            get_glyph_atlas_info(font_atlases, physical_glyph.cache_key)
+                                .map(Ok)
+                                .unwrap_or_else(|| {
+                                    add_glyph_to_atlas(
+                                        font_atlases,
+                                        &mut texture_atlases,
+                                        &mut textures,
+                                        font_system,
+                                        swash_cache,
+                                        layout_glyph,
+                                        font_smoothing,
+                                    )
+                                })?;
 
                         let texture_atlas = texture_atlases.get(atlas_info.texture_atlas).unwrap();
                         let location = atlas_info.location;
@@ -521,12 +521,12 @@ pub fn text_input_prompt_system(
 }
 
 pub fn remove_dropped_font_atlas_sets_from_text_input_pipeline(
-    mut text_input_pipeline: ResMut<TextInputPipeline>,
+    mut font_atlas_sets: ResMut<FontAtlasSet>,
     mut font_events: MessageReader<AssetEvent<Font>>,
 ) {
     for event in font_events.read() {
         if let AssetEvent::Removed { id } = event {
-            text_input_pipeline.font_atlas_sets.remove(id);
+            font_atlas_sets.retain(|key, _| key.0 != *id);
         }
     }
 }
