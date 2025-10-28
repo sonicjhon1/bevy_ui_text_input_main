@@ -20,7 +20,7 @@ use bevy::ecs::observer::Observer;
 use bevy::ecs::query::Changed;
 use bevy::ecs::resource::Resource;
 use bevy::ecs::schedule::IntoScheduleConfigs;
-use bevy::ecs::system::Query;
+use bevy::ecs::system::{Commands, Query};
 use bevy::ecs::world::DeferredWorld;
 use bevy::input_focus::InputFocus;
 use bevy::math::{Rect, Vec2};
@@ -419,13 +419,22 @@ impl TextInputContents {
 }
 
 pub fn update_text_input_contents(
-    mut query: Query<(&TextInputBuffer, &mut TextInputContents), Changed<TextInputBuffer>>,
+    mut commands: Commands,
+    mut query: Query<
+        (Entity, &TextInputBuffer, Option<&TextInputContents>),
+        Changed<TextInputBuffer>,
+    >,
 ) {
-    for (buffer, mut contents) in query.iter_mut() {
+    for (entity, buffer, contents_option) in query.iter_mut() {
         let text = buffer.get_text();
-        if contents.text != text {
-            contents.text = text;
-        }
+
+        if let Some(contents) = contents_option
+            && contents.text == text
+        {
+            continue;
+        };
+
+        commands.entity(entity).insert(TextInputContents { text });
     }
 }
 
