@@ -104,12 +104,15 @@ pub fn text_input_system(
     mut text_query: Query<(
         Ref<ComputedNode>,
         Ref<TextFont>,
+        Ref<LineHeight>,
         &mut TextInputLayoutInfo,
         &mut TextInputBuffer,
         Ref<TextInputNode>,
     )>,
 ) {
-    for (node, text_font, text_input_layout_info, mut editor, input) in text_query.iter_mut() {
+    for (node, text_font, line_height, text_input_layout_info, mut editor, input) in
+        text_query.iter_mut()
+    {
         let layout_info = text_input_layout_info.into_inner();
         if editor.needs_update || text_font.is_changed() || node.is_changed() || input.is_changed()
         {
@@ -118,8 +121,8 @@ pub fn text_input_system(
                 height: Some(node.size().y),
             };
 
-            let line_height = match text_font.line_height {
-                LineHeight::Px(h) => h,
+            let line_height = match line_height.into_inner() {
+                LineHeight::Px(h) => *h,
                 LineHeight::RelativeToFont(r) => r * text_font.font_size,
             };
 
@@ -320,13 +323,14 @@ pub fn text_input_prompt_system(
     mut text_query: Query<(
         Ref<ComputedNode>,
         Ref<TextFont>,
+        Ref<LineHeight>,
         &mut TextInputPromptLayoutInfo,
         &mut TextInputBuffer,
         Ref<TextInputNode>,
         Ref<TextInputPrompt>,
     )>,
 ) {
-    for (node, text_font, text_input_layout_info, mut editor, input, prompt) in
+    for (node, text_font, line_height, text_input_layout_info, mut editor, input, prompt) in
         text_query.iter_mut()
     {
         let layout_info = text_input_layout_info.into_inner();
@@ -356,8 +360,8 @@ pub fn text_input_prompt_system(
 
             let font = prompt.font.as_ref().unwrap_or(text_font.as_ref());
 
-            let line_height = match text_font.line_height {
-                LineHeight::Px(h) => h,
+            let line_height = match line_height.into_inner() {
+                LineHeight::Px(h) => *h,
                 LineHeight::RelativeToFont(r) => r * font.font_size,
             };
 
