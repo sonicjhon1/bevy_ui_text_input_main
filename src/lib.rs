@@ -27,7 +27,7 @@ use bevy::math::{Rect, Vec2};
 use bevy::prelude::ReflectComponent;
 use bevy::reflect::{Reflect, std_traits::ReflectDefault};
 use bevy::render::{ExtractSchedule, RenderApp};
-use bevy::text::{GlyphAtlasInfo, TextFont};
+use bevy::text::{GlyphAtlasInfo, LineHeight, TextFont};
 use bevy::text::{Justify, TextColor};
 use bevy::ui::{Node, UiSystems};
 use bevy::ui_render::{RenderUiSystems, extract_text_sections};
@@ -92,6 +92,7 @@ impl Plugin for TextInputPlugin {
     Node,
     TextInputBuffer,
     TextFont,
+    LineHeight,
     TextInputLayoutInfo,
     TextInputStyle,
     TextColor,
