@@ -193,7 +193,7 @@ pub fn text_input_system(
 
             let result = editor.with_buffer_mut(|buffer| {
                 let box_size = buffer_dimensions(buffer);
-                let result = buffer.layout_runs().try_for_each(|run| {
+                buffer.layout_runs().try_for_each(|run| {
                     if let Some(selection) = selection
                         && let Some((x0, w)) = run.highlight(selection.0, selection.1)
                     {
@@ -288,10 +288,7 @@ pub fn text_input_system(
                             layout_info.glyphs.push(pos_glyph);
                             Ok(())
                         })
-                });
-
-                // Check result.
-                result?;
+                })?;
 
                 layout_info.size = box_size;
                 Ok(())
