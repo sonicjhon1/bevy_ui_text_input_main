@@ -12,7 +12,6 @@ repository = "https://github.com/ickshonpe/bevy_ui_text_input"
 [dependencies]
 bevy = { git = "https://github.com/bevyengine/bevy", default-features = false, features = ["bevy_asset", "bevy_ui", "bevy_input_focus", "bevy_picking", "bevy_ui_render"] }
 sys-locale = "0.3.2"
-once_cell = "1.21.3"
 cosmic_undo_2 = "0.2.0"
 # Keep in sync with https://github.com/bevyengine/bevy/blob/main/crates/bevy_text/Cargo.toml#L33
 cosmic-text = "0.14"
