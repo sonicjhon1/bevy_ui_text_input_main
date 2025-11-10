@@ -55,14 +55,13 @@ fn load_font_to_fontdb(
     font_system: &mut cosmic_text::FontSystem,
     map_handle_to_font_id: &mut HashMap<AssetId<Font>, (cosmic_text::fontdb::ID, Arc<str>)>,
     fonts: &Assets<Font>,
-) -> FontFaceInfo {
+) -> Result<FontFaceInfo, TextError> {
     let font_handle = text_font.font.clone();
+    let font = fonts.get(font_handle.id()).ok_or(TextError::NoSuchFont)?;
+
     let (face_id, family_name) = map_handle_to_font_id
         .entry(font_handle.id())
         .or_insert_with(|| {
-            let font = fonts.get(font_handle.id()).expect(
-                "Tried getting a font that was not available, probably due to not being loaded yet",
-            );
             let data = Arc::clone(&font.data);
             let ids = font_system
                 .db_mut()
@@ -75,14 +74,18 @@ fn load_font_to_fontdb(
 
             (face_id, family_name)
         });
-    let face = font_system.db().face(*face_id).unwrap();
 
-    FontFaceInfo {
+    let face = font_system
+        .db()
+        .face(*face_id)
+        .ok_or(TextError::NoSuchFont)?;
+
+    Ok(FontFaceInfo {
         stretch: face.stretch,
         style: face.style,
         weight: face.weight,
         family_name: family_name.clone(),
-    }
+    })
 }
 
 fn buffer_dimensions(buffer: &cosmic_text::Buffer) -> Vec2 {
@@ -137,7 +140,7 @@ pub fn text_input_system(
                 }
 
                 let face_info =
-                    load_font_to_fontdb(&text_font, font_system, map_handle_to_font_id, &fonts);
+                    load_font_to_fontdb(&text_font, font_system, map_handle_to_font_id, &fonts)?;
 
                 let mut metrics = Metrics::new(text_font.font_size, line_height)
                     .scale(node.inverse_scale_factor().recip());
@@ -386,7 +389,11 @@ pub fn text_input_prompt_system(
                 height: Some(node.size().y),
             };
 
-            let face_info = load_font_to_fontdb(font, font_system, map_handle_to_font_id, &fonts);
+            let Ok(face_info) =
+                load_font_to_fontdb(font, font_system, map_handle_to_font_id, &fonts)
+            else {
+                continue;
+            };
 
             buffer.set_size(font_system, bounds.width, bounds.height);
 
