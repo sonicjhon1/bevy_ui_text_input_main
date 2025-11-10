@@ -301,7 +301,13 @@ pub fn text_input_system(
                 Err(TextError::NoSuchFont) => {
                     // There was an error processing the text layout, try again next frame
                 }
-                Err(e @ (TextError::FailedToAddGlyph(_) | TextError::FailedToGetGlyphImage(_))) => {
+                Err(
+                    e @ (TextError::FailedToAddGlyph(_)
+                    | TextError::FailedToGetGlyphImage(_)
+                    | TextError::MissingAtlasLayout
+                    | TextError::MissingAtlasTexture
+                    | TextError::InconsistentAtlasState),
+                ) => {
                     panic!("Fatal error when processing text: {e}.");
                 }
                 Ok(()) => {
@@ -512,7 +518,13 @@ pub fn text_input_prompt_system(
                     editor.prompt_buffer = None;
                     // There was an error processing the text layout, try again next frame
                 }
-                Err(e @ (TextError::FailedToAddGlyph(_) | TextError::FailedToGetGlyphImage(_))) => {
+                Err(
+                    e @ (TextError::FailedToAddGlyph(_)
+                    | TextError::FailedToGetGlyphImage(_)
+                    | TextError::MissingAtlasLayout
+                    | TextError::MissingAtlasTexture
+                    | TextError::InconsistentAtlasState),
+                ) => {
                     panic!("Fatal error when processing text: {e}.");
                 }
                 Ok(()) => {
