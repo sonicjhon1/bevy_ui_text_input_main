@@ -68,9 +68,9 @@ pub enum TextInputEdit {
         x: i32,
         y: i32,
     },
-    /// Scroll specified number of lines
+    /// Scroll specified number of pixels
     Scroll {
-        lines: i32,
+        pixels: f32,
     },
     Paste(String),
     Undo,
@@ -137,8 +137,8 @@ pub fn apply_text_input_edit(
         TextInputEdit::Drag { x, y } => {
             editor.action(Action::Drag { x, y });
         }
-        TextInputEdit::Scroll { lines } => {
-            editor.action(Action::Scroll { lines });
+        TextInputEdit::Scroll { pixels } => {
+            editor.action(Action::Scroll { pixels });
         }
         TextInputEdit::Paste(text) => {
             if max_chars.is_none_or(|max| editor.with_buffer(buffer_len) + text.len() <= max) {

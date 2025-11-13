@@ -199,12 +199,12 @@ pub(crate) fn on_text_input_pressed(
 pub fn mouse_wheel_scroll(
     mut mouse_wheel_events: MessageReader<MouseWheel>,
     hover_map: Res<HoverMap>,
-    mut node_query: Query<(&mut TextInputBuffer, &TextInputNode, &mut TextInputQueue)>,
+    mut node_query: Query<(&TextInputBuffer, &TextInputNode, &mut TextInputQueue)>,
 ) {
     for mouse_wheel_event in mouse_wheel_events.read() {
         for (_, pointer_map) in hover_map.iter() {
             for (entity, _) in pointer_map.iter() {
-                let Ok((mut buffer, input, mut queue)) = node_query.get_mut(*entity) else {
+                let Ok((buffer, input, mut queue)) = node_query.get_mut(*entity) else {
                     continue;
                 };
 
@@ -214,16 +214,18 @@ pub fn mouse_wheel_scroll(
 
                 match mouse_wheel_event.unit {
                     MouseScrollUnit::Line => {
+                        let line_height = buffer
+                            .editor
+                            .with_buffer(|buffer| buffer.metrics().line_height);
+
                         queue.add(TextInputAction::Edit(TextInputEdit::Scroll {
-                            lines: -mouse_wheel_event.y as i32,
+                            pixels: -mouse_wheel_event.y * line_height,
                         }));
                     }
                     MouseScrollUnit::Pixel => {
-                        buffer.editor.with_buffer_mut(|buffer| {
-                            let mut scroll = buffer.scroll();
-                            scroll.vertical -= mouse_wheel_event.y;
-                            buffer.set_scroll(scroll);
-                        });
+                        queue.add(TextInputAction::Edit(TextInputEdit::Scroll {
+                            pixels: -mouse_wheel_event.y,
+                        }));
                     }
                 };
             }
@@ -321,6 +323,7 @@ pub fn on_move_clear_multi_click(move_: On<Pointer<Move>>, mut commands: Command
 
 pub fn queue_text_input_action(
     input_mode: &TextInputMode,
+    input_buffer: &TextInputBuffer,
     shift_pressed: &mut bool,
     overwrite_mode: &mut bool,
     command_pressed: &mut bool,
@@ -397,12 +400,24 @@ pub fn queue_text_input_action(
                 }
                 Key::ArrowUp => {
                     if matches!(input_mode, TextInputMode::MultiLine { .. }) {
-                        queue(TextInputAction::Edit(TextInputEdit::Scroll { lines: -1 }));
+                        let line_height = input_buffer
+                            .editor
+                            .with_buffer(|buffer| buffer.metrics().line_height);
+
+                        queue(TextInputAction::Edit(TextInputEdit::Scroll {
+                            pixels: -line_height,
+                        }));
                     }
                 }
                 Key::ArrowDown => {
                     if matches!(input_mode, TextInputMode::MultiLine { .. }) {
-                        queue(TextInputAction::Edit(TextInputEdit::Scroll { lines: 1 }));
+                        let line_height = input_buffer
+                            .editor
+                            .with_buffer(|buffer| buffer.metrics().line_height);
+
+                        queue(TextInputAction::Edit(TextInputEdit::Scroll {
+                            pixels: line_height,
+                        }));
                     }
                 }
                 Key::Home => {
@@ -621,10 +636,10 @@ pub fn process_text_input_queues(
 
 pub fn on_focused_keyboard_input(
     trigger: On<FocusedInput<KeyboardInput>>,
-    mut query: Query<(&TextInputNode, &mut TextInputQueue)>,
+    mut query: Query<(&TextInputBuffer, &TextInputNode, &mut TextInputQueue)>,
     mut global_state: ResMut<TextInputGlobalState>,
 ) {
-    if let Ok((input, mut queue)) = query.get_mut(trigger.focused_entity) {
+    if let Ok((buffer, input, mut queue)) = query.get_mut(trigger.focused_entity) {
         let TextInputGlobalState {
             shift,
             overwrite_mode,
@@ -632,6 +647,7 @@ pub fn on_focused_keyboard_input(
         } = &mut *global_state;
         queue_text_input_action(
             &input.mode,
+            buffer,
             shift,
             overwrite_mode,
             command,

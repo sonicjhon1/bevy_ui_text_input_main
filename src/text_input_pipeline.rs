@@ -152,6 +152,8 @@ pub fn text_input_system(
 
                 buffer.set_wrap(font_system, input.mode.wrap());
 
+                let text = crate::get_text(buffer);
+
                 let attrs = cosmic_text::Attrs::new()
                     .metadata(0)
                     .family(cosmic_text::Family::Name(&face_info.family_name))
@@ -160,12 +162,15 @@ pub fn text_input_system(
                     .weight(face_info.weight)
                     .metrics(metrics);
 
-                let text = crate::get_text(buffer);
-                buffer.set_text(font_system, &text, &attrs, cosmic_text::Shaping::Advanced);
                 let align = Some(input.justification.into());
-                for buffer_line in buffer.lines.iter_mut() {
-                    buffer_line.set_align(align);
-                }
+
+                buffer.set_text(
+                    font_system,
+                    &text,
+                    &attrs,
+                    cosmic_text::Shaping::Advanced,
+                    align,
+                );
 
                 Ok(())
             });
@@ -415,17 +420,15 @@ pub fn text_input_prompt_system(
                 .weight(face_info.weight)
                 .metrics(metrics);
 
+            let align = Some(input.justification.into());
+
             buffer.set_text(
                 font_system,
                 &prompt.text,
                 &attrs,
                 cosmic_text::Shaping::Advanced,
+                align,
             );
-
-            let align = Some(input.justification.into());
-            for buffer_line in buffer.lines.iter_mut() {
-                buffer_line.set_align(align);
-            }
 
             buffer.shape_until_scroll(font_system, false);
 

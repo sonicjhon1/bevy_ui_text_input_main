@@ -14,7 +14,7 @@ bevy = { git = "https://github.com/bevyengine/bevy", default-features = false, f
 sys-locale = "0.3.2"
 cosmic_undo_2 = "0.2.0"
 # Keep in sync with https://github.com/bevyengine/bevy/blob/main/crates/bevy_text/Cargo.toml#L33
-cosmic-text = "0.14"
+cosmic-text = "0.15"
 
 [target.'cfg(any(windows, unix))'.dependencies]
 arboard = { version = "3.6.1", default-features = false }
