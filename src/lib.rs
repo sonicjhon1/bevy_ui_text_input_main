@@ -300,6 +300,26 @@ impl Default for TextInputBuffer {
     }
 }
 
+#[derive(Component, Debug, PartialEq, Eq, Default)]
+#[component(on_insert)]
+pub struct TextInputInsertValue(pub String);
+
+impl TextInputInsertValue {
+    fn on_insert(mut world: DeferredWorld, context: HookContext) {
+        let set_value = world
+            .get::<TextInputInsertValue>(context.entity)
+            .expect("TextInputSetValue should exist, as it is what this hook is called from")
+            .0
+            .clone();
+
+        let text_input_buffer = world.get_mut::<TextInputBuffer>(context.entity);
+
+        if let Some(mut text_input_buffer) = text_input_buffer {
+            text_input_buffer.editor.insert_string(&set_value, None);
+        };
+    }
+}
+
 /// Prompt displayed when the input is empty (including whitespace).
 /// Optional component.
 #[derive(Component, Clone, Debug, Reflect)]
